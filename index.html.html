@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HocPhi Manager</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3348;
+    --accent: #f0a500;
+    --accent2: #e05c5c;
+    --green: #3ecf8e;
+    --blue: #4a9eff;
+    --text: #e8eaf0;
+    --muted: #7c82a0;
+    --mamnon: #f0a500;
+    --tienganh: #4a9eff;
+    --toan: #3ecf8e;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; position: fixed; height: 100vh; overflow-y: auto; z-index: 100; display: flex; flex-direction: column; }
+  .main { margin-left: 220px; padding: 24px; flex: 1; min-width: 0; }
+
+  /* SIDEBAR */
+  .logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .logo h1 { font-size: 15px; font-weight: 700; color: var(--accent); line-height: 1.3; }
+  .logo span { font-size: 11px; color: var(--muted); }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; cursor: pointer; color: var(--muted); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); background: rgba(240,165,0,0.08); border-left-color: var(--accent); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-section { font-size: 10px; color: var(--muted); padding: 16px 20px 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* HEADER */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .page-title span { color: var(--accent); }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-value.gold { color: var(--accent); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--accent2); }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #ffb820; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: rgba(224,92,92,0.15); color: var(--accent2); border: 1px solid rgba(224,92,92,0.3); }
+  .btn-danger:hover { background: rgba(224,92,92,0.25); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-green { background: rgba(62,207,142,0.15); color: var(--green); border: 1px solid rgba(62,207,142,0.3); }
+  .btn-green:hover { background: rgba(62,207,142,0.25); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 14px; border-bottom: 1px solid rgba(46,51,72,0.5); vertical-align: middle; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  tr:last-child td { border-bottom: none; }
+
+  /* BADGE */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-mamnon { background: rgba(240,165,0,0.15); color: var(--mamnon); }
+  .badge-tienganh { background: rgba(74,158,255,0.15); color: var(--tienganh); }
+  .badge-toan { background: rgba(62,207,142,0.15); color: var(--toan); }
+  .badge-discount { background: rgba(224,92,92,0.15); color: var(--accent2); }
+
+  /* FORM / MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+  .modal h2 { font-size: 18px; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1/-1; }
+  label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  input, select, textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; width: 100%; outline: none; transition: border 0.15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  input[type=checkbox] { width: auto; accent-color: var(--accent); }
+  .check-row { display: flex; align-items: center; gap: 8px; }
+  .check-row label { font-size: 13px; color: var(--text); margin: 0; }
+
+  /* SCHEDULE PICKER */
+  .days-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day-btn { width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+  .day-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface2); padding: 4px; border-radius: 10px; width: fit-content; }
+  .tab { padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.15s; border: none; background: transparent; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+  /* SEARCH */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .search-input { flex: 1; max-width: 280px; }
+
+  /* PAGE */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-size: 14px; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all 0.25s; max-width: 320px; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--accent2); color: var(--accent2); }
+
+  /* CONFIG PAGE */
+  .config-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .config-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .config-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .config-item { display: flex; flex-direction: column; gap: 6px; }
+
+  /* LOGIN */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 360px; text-align: center; }
+  .login-box h1 { color: var(--accent); font-size: 22px; margin-bottom: 6px; }
+  .login-box p { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+  /* SETUP GUIDE */
+  .setup-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+  .setup-box h3 { color: var(--accent); margin-bottom: 12px; font-size: 15px; }
+  .setup-box ol { padding-left: 18px; font-size: 13px; line-height: 2; color: var(--muted); }
+  .setup-box ol li span { color: var(--text); }
+  .setup-box input { margin-top: 10px; }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .actions-row { display: flex; gap: 6px; }
+
+  @media (max-width: 900px) {
+    .sidebar { width: 56px; }
+    .sidebar .logo, .sidebar .nav-section, .nav-item span { display: none; }
+    .nav-item { justify-content: center; padding: 12px; }
+    .main { margin-left: 56px; padding: 12px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .form-grid { grid-template-columns: 1fr; }
+    .config-grid { grid-template-columns: 1fr; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 10px; }
+  }
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .modal { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-box">
+    <div style="font-size:40px;margin-bottom:12px">🏫</div>
+    <h1>HocPhi Manager</h1>
+    <p>Quản lý học phí thông minh</p>
+    <div id="setupGuide" style="display:none">
+      <div class="setup-box">
+        <h3>⚙️ Cần cấu hình Supabase</h3>
+        <ol>
+          <li>Tạo project tại <span>supabase.com</span></li>
+          <li>Chạy SQL schema trong <span>SQL Editor</span></li>
+          <li>Điền thông tin bên dưới</li>
+        </ol>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+          <input type="text" id="inputUrl" placeholder="Project URL (https://xxx.supabase.co)" />
+          <input type="text" id="inputKey" placeholder="Anon Key" />
+          <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveSupabaseConfig()">💾 Lưu cấu hình</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <input type="password" id="loginPass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter')doLogin()" />
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">🔑 Đăng nhập</button>
+      <button class="btn btn-secondary" style="width:100%;justify-content:center;font-size:12px" onclick="toggleSetup()">⚙️ Cấu hình Supabase</button>
+    </div>
+    <div id="loginError" style="color:var(--accent2);font-size:13px;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appWrap" class="app" style="display:none">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">
+      <h1>🏫 HocPhi<br>Manager</h1>
+      <span>v1.0</span>
+    </div>
+    <div class="nav-section">Quản lý</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">📊</span><span>Tổng quan</span>
+    </div>
+    <div class="nav-item" onclick="showPage('students')">
+      <span class="nav-icon">👨‍🎓</span><span>Học sinh</span>
+    </div>
+    <div class="nav-item" onclick="showPage('classes')">
+      <span class="nav-icon">🏫</span><span>Quản lý lớp</span>
+    </div>
+    <div class="nav-item" onclick="showPage('attendance')">
+      <span class="nav-icon">📅</span><span>Điểm danh</span>
+    </div>
+    <div class="nav-item" onclick="showPage('fees')">
+      <span class="nav-icon">💰</span><span>Học phí</span>
+    </div>
+    <div class="nav-section">Tiện ích</div>
+    <div class="nav-item" onclick="showPage('zalo')">
+      <span class="nav-icon">💬</span><span>Gửi Zalo</span>
+    </div>
+    <div class="nav-item" onclick="showPage('export')">
+      <span class="nav-icon">📤</span><span>Xuất Excel</span>
+    </div>
+    <div class="nav-section">Hệ thống</div>
+    <div class="nav-item" onclick="showPage('config')">
+      <span class="nav-icon">⚙️</span><span>Cấu hình phí</span>
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <span class="nav-icon">🔒</span><span>Cài đặt</span>
+    </div>
+    <div class="nav-item" onclick="doLogout()" style="margin-top:auto">
+      <span class="nav-icon">🚪</span><span>Đăng xuất</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div class="page-title">Tổng quan <span id="dashMonthLabel"></span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="month" id="dashMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadDashboard()">
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Tổng học sinh</div><div class="stat-value blue" id="statTotal">-</div></div>
+        <div class="stat-card"><div class="stat-label">Mầm non</div><div class="stat-value gold" id="statMamnon">-</div></div>
+        <div class="stat-card"><div class="stat-label">Tiếng Anh</div><div class="stat-value blue" id="statTA">-</div></div>
+        <div class="stat-card"><div class="stat-label">Toán</div><div class="stat-value green" id="statToan">-</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px">💰 Học phí tháng này</div>
+        <div id="dashFeeList"><div class="empty-state"><div class="icon">📊</div><p>Chọn tháng để xem</p></div></div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div id="page-students" class="page">
+      <div class="page-header">
+        <div class="page-title">👨‍🎓 Học sinh</div>
+        <button class="btn btn-primary" onclick="openStudentModal()">+ Thêm học sinh</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" class="search-input" placeholder="🔍 Tìm theo tên..." oninput="filterStudents(this.value)" />
+        <div class="tabs" style="margin:0">
+          <button class="tab active" onclick="filterByType('all',this)">Tất cả</button>
+          <button class="tab" onclick="filterByType('mamnon',this)">Mầm non</button>
+          <button class="tab" onclick="filterByType('tienganh',this)">Tiếng Anh</button>
+          <button class="tab" onclick="filterByType('toan',this)">Toán</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tên học sinh</th>
+                <th>Ngày sinh</th>
+                <th>Loại lớp</th>
+                <th>Lịch học</th>
+                <th>Zalo</th>
+                <th>Giảm 10%</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody">
+              <tr><td colspan="8"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Chưa có học sinh</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLASSES -->
+    <div id="page-classes" class="page">
+      <div class="page-header">
+        <div class="page-title">🏫 Quản lý lớp</div>
+        <button class="btn btn-primary" onclick="openClassModal()">+ Thêm lớp</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="filterClassType('all',this)">Tất cả</button>
+        <button class="tab" onclick="filterClassType('tienganh',this)">Tiếng Anh</button>
+        <button class="tab" onclick="filterClassType('toan',this)">Toán</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Tên lớp</th><th>Loại</th><th>Lịch học</th><th>Số HS</th><th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="classTableBody">
+              <tr><td colspan="6"><div class="empty-state"><div class="icon">🏫</div><p>Chưa có lớp nào</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div id="page-attendance" class="page">
+      <div class="page-header">
+        <div class="page-title">📅 Điểm danh</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="month" id="attMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadAttendance()">
+          <button class="btn btn-secondary" onclick="loadAttendance()">🔄 Tải lại</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="filterAttType('all',this)">Tất cả</button>
+        <button class="tab" onclick="filterAttType('mamnon',this)">Mầm non</button>
+        <button class="tab" onclick="filterAttType('tienganh',this)">Tiếng Anh</button>
+        <button class="tab" onclick="filterAttType('toan',this)">Toán</button>
+      </div>
+      <div id="attendanceContent"><div class="empty-state"><div class="icon">📅</div><p>Chọn tháng để xem điểm danh</p></div></div>
+    </div>
+
+    <!-- FEES -->
+    <div id="page-fees" class="page">
+      <div class="page-header">
+        <div class="page-title">💰 Học phí</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="month" id="feeMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadFees()">
+          <select id="feeClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadFees()">
+            <option value="all">Tất cả lớp</option>
+          </select>
+          <button class="btn btn-primary" onclick="calcAllFees()">⚡ Tính học phí</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tên</th><th>Loại</th><th>Số buổi</th><th>HP cơ bản</th><th>Tiền ăn</th><th>Zumba</th><th>Giảm</th><th>Tổng</th><th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody id="feeTableBody">
+              <tr><td colspan="9"><div class="empty-state"><div class="icon">💰</div><p>Chọn tháng và bấm "Tính học phí"</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="feeTotalRow" style="padding:16px;border-top:1px solid var(--border);font-weight:700;display:none">
+          Tổng thu tháng: <span id="feeGrandTotal" style="color:var(--accent);font-size:18px"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZALO -->
+    <div id="page-zalo" class="page">
+      <div class="page-header">
+        <div class="page-title">💬 Gửi Zalo</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="month" id="zaloMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadZaloList()">
+          <select id="zaloClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadZaloList()">
+            <option value="all">Tất cả lớp</option>
+          </select>
+        </div>
+      </div>
+      <div id="zaloContent"><div class="empty-state"><div class="icon">💬</div><p>Chọn tháng để tạo tin nhắn</p></div></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div id="page-export" class="page">
+      <div class="page-header">
+        <div class="page-title">📤 Xuất Excel</div>
+      </div>
+      <div class="card" style="max-width:480px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px">Xuất báo cáo học phí tháng</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+          <div class="form-group">
+            <label>Chọn tháng</label>
+            <input type="month" id="exportMonth" />
+          </div>
+          <div class="form-group">
+            <label>Chọn lớp</label>
+            <select id="exportClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px;width:100%">
+              <option value="all">Tất cả lớp</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-primary" style="justify-content:center" onclick="exportExcel()">📊 Xuất Excel theo lựa chọn</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div id="page-config" class="page">
+      <div class="page-header">
+        <div class="page-title">⚙️ Cấu hình học phí</div>
+        <button class="btn btn-primary" onclick="saveConfigs()">💾 Lưu thay đổi</button>
+      </div>
+      <div class="config-card">
+        <div class="config-title"><span style="color:var(--mamnon)">🟡</span> Mầm non</div>
+        <div class="config-grid">
+          <div class="config-item"><label>HP cố định/tháng (VND)</label><input type="number" id="cfg_mn_base" value="3500000" /></div>
+          <div class="config-item"><label>Tiền ăn/buổi (VND)</label><input type="number" id="cfg_mn_meal" value="25000" /></div>
+          <div class="config-item"><label>Phí Zumba/tháng (VND)</label><input type="number" id="cfg_mn_zumba" value="200000" /></div>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-title"><span style="color:var(--tienganh)">🔵</span> Tiếng Anh</div>
+        <div class="config-grid">
+          <div class="config-item"><label>HP/buổi (VND)</label><input type="number" id="cfg_ta_per" value="150000" /></div>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-title"><span style="color:var(--toan)">🟢</span> Toán</div>
+        <div class="config-grid">
+          <div class="config-item"><label>HP/buổi (VND)</label><input type="number" id="cfg_toan_per" value="150000" /></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header"><div class="page-title">🔒 Cài đặt</div></div>
+      <div class="card" style="max-width:400px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px">Đổi mật khẩu</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-group"><label>Mật khẩu hiện tại</label><input type="password" id="oldPass" /></div>
+          <div class="form-group"><label>Mật khẩu mới</label><input type="password" id="newPass" /></div>
+          <div class="form-group"><label>Nhập lại mật khẩu mới</label><input type="password" id="newPass2" /></div>
+          <button class="btn btn-primary" onclick="changePassword()">🔒 Đổi mật khẩu</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- CLASS MODAL -->
+<div id="classModal" class="modal-overlay">
+  <div class="modal">
+    <h2 id="classModalTitle">Thêm lớp</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Tên lớp *</label><input type="text" id="c_name" placeholder="VD: English 2-5, Toán Lớp 3" /></div>
+      <div class="form-group full"><label>Loại lớp *</label>
+        <select id="c_type">
+          <option value="tienganh">Tiếng Anh</option>
+          <option value="toan">Toán</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Lịch học trong tuần</label>
+        <div class="days-picker" id="classDaysPicker">
+          <button type="button" class="day-btn" data-day="2" onclick="toggleClassDay(this)">T2</button>
+          <button type="button" class="day-btn" data-day="3" onclick="toggleClassDay(this)">T3</button>
+          <button type="button" class="day-btn" data-day="4" onclick="toggleClassDay(this)">T4</button>
+          <button type="button" class="day-btn" data-day="5" onclick="toggleClassDay(this)">T5</button>
+          <button type="button" class="day-btn" data-day="6" onclick="toggleClassDay(this)">T6</button>
+          <button type="button" class="day-btn" data-day="7" onclick="toggleClassDay(this)">T7</button>
+          <button type="button" class="day-btn" data-day="0" onclick="toggleClassDay(this)">CN</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-secondary" onclick="closeClassModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveClass()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT MODAL -->
+<div id="studentModal" class="modal-overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Thêm học sinh</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Họ và tên *</label><input type="text" id="s_name" placeholder="VD: Nguyễn Văn An" /></div>
+      <div class="form-group"><label>Ngày sinh</label><input type="date" id="s_dob" /></div>
+      <div class="form-group"><label>Loại lớp *</label>
+        <select id="s_type" onchange="onTypeChange()">
+          <option value="mamnon">Mầm non</option>
+          <option value="tienganh">Tiếng Anh</option>
+          <option value="toan">Toán</option>
+        </select>
+      </div>
+      <div class="form-group" id="levelGroup">
+        <label id="levelLabel">Chọn lớp *</label>
+        <select id="s_class_id">
+          <option value="">-- Chọn lớp --</option>
+        </select>
+      </div>
+      <div class="form-group"><label>SĐT Zalo phụ huynh</label><input type="text" id="s_phone" placeholder="0912345678" /></div>
+      <div class="form-group"><label>Tên phụ huynh</label><input type="text" id="s_parent" placeholder="VD: Anh Hùng" /></div>
+      <div class="form-group full" id="scheduleGroup">
+        <label id="scheduleLabel">Lịch học trong tuần *</label>
+        <div id="mamnonScheduleNote" style="display:none;background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.3);border-radius:8px;padding:10px;font-size:13px;color:var(--accent)">
+          📅 Mầm non học cố định <strong>Thứ 2 – Thứ 7</strong>
+        </div>
+        <div class="days-picker" id="daysPicker">
+          <button type="button" class="day-btn" data-day="2" onclick="toggleDay(this)">T2</button>
+          <button type="button" class="day-btn" data-day="3" onclick="toggleDay(this)">T3</button>
+          <button type="button" class="day-btn" data-day="4" onclick="toggleDay(this)">T4</button>
+          <button type="button" class="day-btn" data-day="5" onclick="toggleDay(this)">T5</button>
+          <button type="button" class="day-btn" data-day="6" onclick="toggleDay(this)">T6</button>
+          <button type="button" class="day-btn" data-day="7" onclick="toggleDay(this)">T7</button>
+          <button type="button" class="day-btn" data-day="0" onclick="toggleDay(this)">CN</button>
+        </div>
+      </div>
+      <div class="form-group full">
+        <div class="check-row">
+          <input type="checkbox" id="s_discount" />
+          <label for="s_discount">Được giảm 10% học phí</label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-secondary" onclick="closeStudentModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveStudent()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================
+// CONFIG
+// ============================================
+let SUPABASE_URL = localStorage.getItem('hpm_url') || '';
+let SUPABASE_KEY = localStorage.getItem('hpm_key') || '';
+
+// ============================================
+// SUPABASE API
+// ============================================
+async function sb(table, method='GET', body=null, query='') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : (method === 'PATCH' ? 'return=representation' : ''),
+    },
+    body: body ? JSON.stringify(body) : null
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+const api = {
+  get: (t, q='') => sb(t, 'GET', null, q),
+  post: (t, b) => sb(t, 'POST', b),
+  patch: (t, b, q) => sb(t, 'PATCH', b, q),
+  delete: (t, q) => sb(t, 'DELETE', null, q),
+  upsert: async (t, b) => {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      },
+      body: JSON.stringify(b)
+    });
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+};
+
+// ============================================
+// STATE
+// ============================================
+let allStudents = [];
+let currentFilter = 'all';
+let currentAttFilter = 'all';
+let editingStudentId = null;
+let feeConfigs = {};
+
+// ============================================
+// SETUP & LOGIN
+// ============================================
+function toggleSetup() {
+  const g = document.getElementById('setupGuide');
+  g.style.display = g.style.display === 'none' ? 'block' : 'none';
+  if (SUPABASE_URL) document.getElementById('inputUrl').value = SUPABASE_URL;
+  if (SUPABASE_KEY) document.getElementById('inputKey').value = SUPABASE_KEY;
+}
+
+function saveSupabaseConfig() {
+  const url = document.getElementById('inputUrl').value.trim();
+  const key = document.getElementById('inputKey').value.trim();
+  if (!url || !key) return showToast('Vui lòng điền đủ thông tin', 'error');
+  SUPABASE_URL = url;
+  SUPABASE_KEY = key;
+  localStorage.setItem('hpm_url', url);
+  localStorage.setItem('hpm_key', key);
+  showToast('Đã lưu cấu hình Supabase ✓', 'success');
+  document.getElementById('setupGuide').style.display = 'none';
+}
+
+async function doLogin() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginError').textContent = 'Chưa cấu hình Supabase!';
+    toggleSetup();
+    return;
+  }
+  const pass = document.getElementById('loginPass').value;
+  try {
+    const rows = await api.get('app_settings', '?key=eq.admin_password');
+    const stored = rows[0]?.value || 'admin123';
+    if (pass !== stored) {
+      document.getElementById('loginError').style.display = 'block';
+      document.getElementById('loginError').textContent = 'Sai mật khẩu!';
+      return;
+    }
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appWrap').style.display = 'flex';
+    initApp();
+  } catch(e) {
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginError').textContent = 'Lỗi kết nối Supabase: ' + e.message;
+  }
+}
+
+function doLogout() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('loginPass').value = '';
+}
+
+async function initApp() {
+  const now = new Date();
+  const m = now.toISOString().slice(0,7);
+  document.getElementById('dashMonth').value = m;
+  document.getElementById('attMonth').value = m;
+  document.getElementById('feeMonth').value = m;
+  document.getElementById('zaloMonth').value = m;
+  document.getElementById('exportMonth').value = m;
+  await loadFeeConfigs();
+  await loadClasses();
+  await loadStudents();
+  loadDashboard();
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event?.target?.closest('.nav-item')?.classList.add('active');
+  if (name === 'classes') { loadClasses(); }
+  if (name === 'attendance') loadAttendance();
+  if (name === 'fees') loadFees();
+  if (name === 'zalo') loadZaloList();
+  if (name === 'config') loadConfigForm();
+}
+
+// ============================================
+// FEE CONFIGS
+// ============================================
+async function loadFeeConfigs() {
+  try {
+    const rows = await api.get('fee_configs');
+    rows.forEach(r => { feeConfigs[r.class_type] = r; });
+    loadConfigForm();
+  } catch(e) { console.error(e); }
+}
+
+function loadConfigForm() {
+  if (feeConfigs.mamnon) {
+    document.getElementById('cfg_mn_base').value = feeConfigs.mamnon.base_fee || 3500000;
+    document.getElementById('cfg_mn_meal').value = feeConfigs.mamnon.meal_fee_per_session || 25000;
+    document.getElementById('cfg_mn_zumba').value = feeConfigs.mamnon.zumba_fee || 200000;
+  }
+  if (feeConfigs.tienganh) document.getElementById('cfg_ta_per').value = feeConfigs.tienganh.fee_per_session || 150000;
+  if (feeConfigs.toan) document.getElementById('cfg_toan_per').value = feeConfigs.toan.fee_per_session || 150000;
+}
+
+async function saveConfigs() {
+  try {
+    const updates = [
+      { class_type: 'mamnon', base_fee: +document.getElementById('cfg_mn_base').value, meal_fee_per_session: +document.getElementById('cfg_mn_meal').value, zumba_fee: +document.getElementById('cfg_mn_zumba').value, fee_per_session: 0 },
+      { class_type: 'tienganh', base_fee: 0, meal_fee_per_session: 0, zumba_fee: 0, fee_per_session: +document.getElementById('cfg_ta_per').value },
+      { class_type: 'toan', base_fee: 0, meal_fee_per_session: 0, zumba_fee: 0, fee_per_session: +document.getElementById('cfg_toan_per').value }
+    ];
+    for (const u of updates) {
+      if (feeConfigs[u.class_type]?.id) {
+        await api.patch('fee_configs', u, `?class_type=eq.${u.class_type}`);
+        Object.assign(feeConfigs[u.class_type], u);
+      }
+    }
+    showToast('Đã lưu cấu hình học phí ✓', 'success');
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// CLASSES
+// ============================================
+let editingClassId = null;
+let currentClassFilter = 'all';
+
+async function loadClasses() {
+  try {
+    allClasses = await api.get('classes', '?active=eq.true&order=name.asc');
+    renderClasses();
+  } catch(e) { console.error(e); }
+}
+
+function renderClasses(filter) {
+  const f = filter || currentClassFilter;
+  const list = allClasses.filter(c => f === 'all' || c.class_type === f);
+  const tbody = document.getElementById('classTableBody');
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🏫</div><p>Chưa có lớp nào</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((c, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${c.name}</strong></td>
+      <td><span class="badge badge-${c.class_type}">${typeLabel(c.class_type)}</span></td>
+      <td style="color:var(--muted);font-size:12px">${formatDays(c.schedule_days)}</td>
+      <td style="color:var(--muted)">${allStudents.filter(s=>s.class_id===c.id).length} HS</td>
+      <td>
+        <div class="actions-row">
+          <button class="btn btn-secondary btn-sm" onclick="openClassModal('${c.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteClass('${c.id}','${c.name}')">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterClassType(type, el) {
+  currentClassFilter = type;
+  document.querySelectorAll('#page-classes .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderClasses(type);
+}
+
+function openClassModal(id = null) {
+  editingClassId = id;
+  document.getElementById('classModalTitle').textContent = id ? 'Sửa lớp' : 'Thêm lớp';
+  document.querySelectorAll('#classDaysPicker .day-btn').forEach(b => b.classList.remove('selected'));
+  if (id) {
+    const c = allClasses.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('c_name').value = c.name;
+    document.getElementById('c_type').value = c.class_type;
+    (c.schedule_days || []).forEach(d => {
+      document.querySelector(`#classDaysPicker .day-btn[data-day="${d}"]`)?.classList.add('selected');
+    });
+  } else {
+    document.getElementById('c_name').value = '';
+    document.getElementById('c_type').value = 'tienganh';
+  }
+  document.getElementById('classModal').classList.add('show');
+}
+
+function closeClassModal() {
+  document.getElementById('classModal').classList.remove('show');
+  editingClassId = null;
+}
+
+function toggleClassDay(btn) { btn.classList.toggle('selected'); }
+
+async function saveClass() {
+  const name = document.getElementById('c_name').value.trim();
+  if (!name) return showToast('Vui lòng nhập tên lớp', 'error');
+  const days = [...document.querySelectorAll('#classDaysPicker .day-btn.selected')].map(b => b.dataset.day);
+  const data = { name, class_type: document.getElementById('c_type').value, schedule_days: days, active: true };
+  try {
+    if (editingClassId) {
+      await api.patch('classes', data, `?id=eq.${editingClassId}`);
+      showToast('Đã cập nhật lớp ✓', 'success');
+    } else {
+      await api.post('classes', data);
+      showToast('Đã thêm lớp ✓', 'success');
+    }
+    closeClassModal();
+    await loadClasses();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function deleteClass(id, name) {
+  const hasStudents = allStudents.filter(s => s.class_id === id).length;
+  if (hasStudents) return showToast(`Lớp "${name}" còn ${hasStudents} học sinh, không thể xóa!`, 'error');
+  if (!confirm(`Xóa lớp "${name}"?`)) return;
+  try {
+    await api.delete('classes', `?id=eq.${id}`);
+    showToast('Đã xóa ✓', 'success');
+    await loadClasses();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// STUDENTS
+// ============================================
+async function loadStudents() {
+  try {
+    allStudents = await api.get('students', '?active=eq.true&order=name.asc');
+    renderStudents();
+    updateDashStats();
+  } catch(e) { console.error(e); }
+}
+
+function renderStudents(filter = null, search = '') {
+  const list = allStudents.filter(s => {
+    const typeMatch = !filter || filter === 'all' || s.class_type === filter;
+    const nameMatch = !search || s.name.toLowerCase().includes(search.toLowerCase());
+    return typeMatch && nameMatch;
+  });
+  const tbody = document.getElementById('studentTableBody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((s, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${s.name}</strong>${s.parent_name ? `<br><small style="color:var(--muted)">PH: ${s.parent_name}</small>` : ''}</td>
+      <td style="color:var(--muted)">${s.date_of_birth ? formatDate(s.date_of_birth) : '-'}</td>
+      <td><span class="badge badge-${s.class_type}">${typeLabel(s.class_type)}${s.class_level ? ' · ' + s.class_level : ''}</span></td>
+      <td style="color:var(--muted);font-size:12px">${formatDays(s.schedule_days)}</td>
+      <td>${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" style="color:var(--blue);font-size:12px">${s.phone_zalo}</a>` : '-'}</td>
+      <td>${s.discount_10 ? '<span class="badge badge-discount">-10%</span>' : '-'}</td>
+      <td>
+        <div class="actions-row">
+          <button class="btn btn-secondary btn-sm" onclick="openStudentModal('${s.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}','${s.name}')">🗑️</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterStudents(search) { renderStudents(currentFilter, search); }
+function filterByType(type, el) {
+  currentFilter = type;
+  document.querySelectorAll('.search-bar .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderStudents(type);
+}
+
+async function openStudentModal(id = null) {
+  editingStudentId = id;
+  document.getElementById('modalTitle').textContent = id ? 'Sửa học sinh' : 'Thêm học sinh';
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+  if (id) {
+    const s = allStudents.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('s_name').value = s.name;
+    document.getElementById('s_dob').value = s.date_of_birth || '';
+    document.getElementById('s_type').value = s.class_type;
+    await loadClassesDropdown(s.class_type);
+    document.getElementById('s_class_id').value = s.class_id || '';
+    document.getElementById('s_phone').value = s.phone_zalo || '';
+    document.getElementById('s_parent').value = s.parent_name || '';
+    document.getElementById('s_discount').checked = s.discount_10;
+    (s.schedule_days || []).forEach(d => {
+      document.querySelector(`.day-btn[data-day="${d}"]`)?.classList.add('selected');
+    });
+  } else {
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_dob').value = '';
+    document.getElementById('s_type').value = 'mamnon';
+    document.getElementById('s_class_id').value = '';
+    document.getElementById('s_phone').value = '';
+    document.getElementById('s_parent').value = '';
+    document.getElementById('s_discount').checked = false;
+  }
+  onTypeChange();
+  document.getElementById('studentModal').classList.add('show');
+}
+
+function onTypeChange() {
+  const type = document.getElementById('s_type').value;
+  const isMamnon = type === 'mamnon';
+
+  // Level/class field
+  document.getElementById('levelGroup').style.display = isMamnon ? 'none' : 'flex';
+  if (!isMamnon) loadClassesDropdown(type);
+
+  // Schedule - ẩn khi chọn lớp (lịch lấy từ lớp)
+  document.getElementById('scheduleGroup').style.display = isMamnon ? 'flex' : 'none';
+  document.getElementById('daysPicker').style.display = isMamnon ? 'none' : 'none';
+  document.getElementById('mamnonScheduleNote').style.display = isMamnon ? 'block' : 'none';
+  if (isMamnon) {
+    document.querySelectorAll('.day-btn').forEach(b => {
+      b.classList.toggle('selected', ['2','3','4','5','6','7'].includes(b.dataset.day));
+    });
+  }
+}
+
+async function loadClassesDropdown(type) {
+  const sel = document.getElementById('s_class_id');
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn lớp --</option>';
+  const classes = allClasses.filter(c => c.class_type === type && c.active);
+  classes.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+  if (currentVal) sel.value = currentVal;
+}
+
+function closeStudentModal() {
+  document.getElementById('studentModal').classList.remove('show');
+  editingStudentId = null;
+}
+
+function toggleDay(btn) { btn.classList.toggle('selected'); }
+
+async function saveStudent() {
+  const name = document.getElementById('s_name').value.trim();
+  if (!name) return showToast('Vui lòng nhập tên học sinh', 'error');
+  const type = document.getElementById('s_type').value;
+  if (type !== 'mamnon' && !document.getElementById('s_class_id').value) {
+    return showToast('Vui lòng chọn lớp', 'error');
+  }
+  const days = [...document.querySelectorAll('.day-btn.selected')].map(b => b.dataset.day);
+  if (type === 'mamnon' && !days.length) return showToast('Vui lòng chọn ít nhất 1 ngày học', 'error');
+  const data = {
+    name,
+    date_of_birth: document.getElementById('s_dob').value || null,
+    class_type: document.getElementById('s_type').value,
+    class_id: document.getElementById('s_class_id').value || null,
+    class_level: (() => {
+      const classId = document.getElementById('s_class_id').value;
+      const cls = allClasses.find(c => c.id === classId);
+      return cls ? cls.name : null;
+    })(),
+    schedule_days: (() => {
+      const type = document.getElementById('s_type').value;
+      if (type === 'mamnon') return [...document.querySelectorAll('.day-btn.selected')].map(b => b.dataset.day);
+      const classId = document.getElementById('s_class_id').value;
+      const cls = allClasses.find(c => c.id === classId);
+      return cls?.schedule_days || [];
+    })(),
+    phone_zalo: document.getElementById('s_phone').value.trim() || null,
+    parent_name: document.getElementById('s_parent').value.trim() || null,
+    // schedule_days set above
+    discount_10: document.getElementById('s_discount').checked,
+    active: true
+  };
+  try {
+    if (editingStudentId) {
+      await api.patch('students', data, `?id=eq.${editingStudentId}`);
+      showToast('Đã cập nhật học sinh ✓', 'success');
+    } else {
+      await api.post('students', data);
+      showToast('Đã thêm học sinh ✓', 'success');
+    }
+    closeStudentModal();
+    await loadStudents();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function deleteStudent(id, name) {
+  if (!confirm(`Xóa học sinh "${name}"? Sẽ xóa toàn bộ điểm danh và học phí.`)) return;
+  try {
+    await api.delete('students', `?id=eq.${id}`);
+    showToast('Đã xóa ✓', 'success');
+    await loadStudents();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// ATTENDANCE
+// ============================================
+async function loadAttendance() {
+  const month = document.getElementById('attMonth').value;
+  if (!month) return;
+  const students = allStudents.filter(s => currentAttFilter === 'all' || s.class_type === currentAttFilter);
+  if (!students.length) {
+    document.getElementById('attendanceContent').innerHTML = `<div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div>`;
+    return;
+  }
+
+  // Tạo tất cả ngày học trong tháng cho từng học sinh
+  const [yr, mo] = month.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+
+  // Load attendance records
+  const startDate = `${month}-01`;
+  const endDate = `${month}-${String(daysInMonth).padStart(2,'0')}`;
+  const records = await api.get('attendance', `?student_id=in.(${students.map(s=>s.id).join(',')})&date=gte.${startDate}&date=lte.${endDate}`);
+  const recMap = {};
+  records.forEach(r => { recMap[`${r.student_id}_${r.date}`] = r; });
+
+  // Render per student
+  let html = '';
+  for (const s of students) {
+    const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+    html += `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <strong>${s.name}</strong>
+            <span class="badge badge-${s.class_type}" style="margin-left:8px">${typeLabel(s.class_type)}</span>
+          </div>
+          <div style="font-size:13px;color:var(--muted)">
+            Lịch: ${formatDays(s.schedule_days)} &nbsp;|&nbsp;
+            <span style="color:var(--green)">Có mặt: <strong id="present_${s.id}">-</strong></span> /
+            <span>Tổng: ${scheduledDates.length} buổi</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="att_${s.id}">
+    `;
+    let presentCount = 0;
+    for (const date of scheduledDates) {
+      const key = `${s.id}_${date}`;
+      const rec = recMap[key];
+      const present = rec ? rec.present : true; // Default: có mặt
+      if (present) presentCount++;
+      const d = new Date(date + 'T00:00:00');
+      const dayLabel = d.getDate();
+      html += `
+        <button onclick="toggleAtt('${s.id}','${date}',this)"
+          style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.15s;
+          background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
+          color:${present ? 'var(--green)' : 'var(--accent2)'};
+          border-color:${present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)'}"
+          title="${date} - ${present ? 'Có mặt' : 'Nghỉ'}">${dayLabel}</button>
+      `;
+    }
+    html += `</div></div>`;
+    // Update count after render
+    setTimeout(() => {
+      const el = document.getElementById(`present_${s.id}`);
+      if (el) el.textContent = scheduledDates.filter(date => {
+        const rec = recMap[`${s.id}_${date}`];
+        return rec ? rec.present : true;
+      }).length;
+    }, 0);
+  }
+  document.getElementById('attendanceContent').innerHTML = html;
+}
+
+async function toggleAtt(studentId, date, btn) {
+  const isPresent = btn.style.color.includes('62,207');
+  const newPresent = !isPresent;
+  try {
+    // Check if record exists
+    const existing = await api.get('attendance', `?student_id=eq.${studentId}&date=eq.${date}`);
+    if (existing && existing.length > 0) {
+      await api.patch('attendance', { present: newPresent }, `?student_id=eq.${studentId}&date=eq.${date}`);
+    } else {
+      await api.post('attendance', { student_id: studentId, date, present: newPresent });
+    }
+    btn.style.background = newPresent ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)';
+    btn.style.color = newPresent ? 'var(--green)' : 'var(--accent2)';
+    btn.style.borderColor = newPresent ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)';
+    btn.title = `${date} - ${newPresent ? 'Có mặt' : 'Nghỉ'}`;
+    // Update count
+    const parentCard = btn.closest('.card');
+    const btns = parentCard.querySelectorAll('[onclick^="toggleAtt"]');
+    const presentCount = [...btns].filter(b => b.style.color.includes('62,207')).length;
+    const countEl = parentCard.querySelector('[id^="present_"]');
+    if (countEl) countEl.textContent = presentCount;
+  } catch(e) { showToast('Lỗi lưu điểm danh: ' + e.message, 'error'); }
+}
+
+function filterAttType(type, el) {
+  currentAttFilter = type;
+  document.querySelectorAll('#page-attendance .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadAttendance();
+}
+
+function getScheduledDates(days, year, month) {
+  const dates = [];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month - 1, d);
+    const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon...
+    const dayStr = dayOfWeek === 0 ? '0' : String(dayOfWeek + 1);
+    // Convert: JS: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+    // Our: 2=Mon,3=Tue,4=Wed,5=Thu,6=Fri,7=Sat,0=Sun
+    const ourDay = dayOfWeek === 0 ? '0' : String(dayOfWeek + 1);
+    if (days.includes(ourDay)) {
+      dates.push(`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+    }
+  }
+  return dates;
+}
+
+// ============================================
+// FEES
+// ============================================
+async function loadFees() {
+  const month = document.getElementById('feeMonth').value;
+  if (!month) return;
+  try {
+    const fees = await api.get('monthly_fees', `?month=eq.${month}&order=student_id`);
+    if (!fees.length) {
+      document.getElementById('feeTableBody').innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">💰</div><p>Chưa có dữ liệu. Bấm "Tính học phí" để tạo.</p></div></td></tr>`;
+      document.getElementById('feeTotalRow').style.display = 'none';
+      return;
+    }
+    renderFeeTable(fees);
+  } catch(e) { console.error(e); }
+}
+
+async function calcAllFees() {
+  const month = document.getElementById('feeMonth').value;
+  if (!month) return showToast('Chọn tháng trước', 'error');
+  showToast('Đang tính học phí...', 'success');
+  const [yr, mo] = month.split('-').map(Number);
+  try {
+    for (const s of allStudents) {
+      const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+      const records = await api.get('attendance', `?student_id=eq.${s.id}&date=gte.${month}-01&date=lte.${month}-${String(new Date(yr,mo,0).getDate()).padStart(2,'0')}`);
+      const recMap = {};
+      records.forEach(r => { recMap[r.date] = r; });
+      const presentDates = scheduledDates.filter(d => {
+        const rec = recMap[d];
+        return rec ? rec.present : true;
+      });
+      const sessions = presentDates.length;
+      const cfg = feeConfigs[s.class_type] || {};
+      let baseFee = 0, mealFee = 0, zumbaFee = 0;
+      if (s.class_type === 'mamnon') {
+        baseFee = cfg.base_fee || 3500000;
+        mealFee = sessions * (cfg.meal_fee_per_session || 25000);
+        zumbaFee = cfg.zumba_fee || 200000;
+      } else {
+        baseFee = sessions * (cfg.fee_per_session || 150000);
+      }
+      const subtotal = baseFee + mealFee + zumbaFee;
+      const discount = s.discount_10 ? Math.round(subtotal * 0.1) : 0;
+      const total = subtotal - discount;
+      await api.upsert('monthly_fees', {
+        student_id: s.id, month, sessions_present: sessions,
+        base_fee: baseFee, meal_fee: mealFee, zumba_fee: zumbaFee,
+        extra_fee: 0, discount_amount: discount, total, zalo_sent: false
+      });
+    }
+    showToast('Đã tính xong học phí ✓', 'success');
+    loadFees();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function renderFeeTable(fees) {
+  const studentMap = {};
+  allStudents.forEach(s => { studentMap[s.id] = s; });
+  let grand = 0;
+  const tbody = document.getElementById('feeTableBody');
+  tbody.innerHTML = fees.map(f => {
+    const s = studentMap[f.student_id] || {};
+    grand += f.total;
+    return `
+      <tr>
+        <td><strong>${s.name || '?'}</strong></td>
+        <td><span class="badge badge-${s.class_type || ''}">${typeLabel(s.class_type)}</span></td>
+        <td style="text-align:center">${f.sessions_present}</td>
+        <td>${fmt(f.base_fee)}</td>
+        <td>${f.meal_fee ? fmt(f.meal_fee) : '-'}</td>
+        <td>${f.zumba_fee ? fmt(f.zumba_fee) : '-'}</td>
+        <td style="color:var(--accent2)">${f.discount_amount ? '-'+fmt(f.discount_amount) : '-'}</td>
+        <td style="color:var(--accent);font-weight:700">${fmt(f.total)}</td>
+        <td style="color:var(--muted);font-size:12px">${f.note||''}</td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('feeGrandTotal').textContent = fmt(grand);
+  document.getElementById('feeTotalRow').style.display = 'block';
+}
+
+// ============================================
+// ZALO
+// ============================================
+async function loadZaloList() {
+  const month = document.getElementById('zaloMonth').value;
+  if (!month) return;
+  const fees = await api.get('monthly_fees', `?month=eq.${month}`);
+  if (!fees.length) {
+    document.getElementById('zaloContent').innerHTML = `<div class="empty-state"><div class="icon">💬</div><p>Chưa có dữ liệu học phí tháng này. Tính học phí trước nhé.</p></div>`;
+    return;
+  }
+  const studentMap = {};
+  allStudents.forEach(s => { studentMap[s.id] = s; });
+  const [, mo] = month.split('-');
+  let html = '<div style="display:grid;gap:12px">';
+  for (const f of fees) {
+    const s = studentMap[f.student_id];
+    if (!s) continue;
+    const msg = buildZaloMsg(s, f, mo);
+    html += `
+      <div class="card" style="padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div><strong>${s.name}</strong> <span class="badge badge-${s.class_type}" style="margin-left:6px">${typeLabel(s.class_type)}</span></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="copyMsg('msg_${f.id}')">📋 Copy</button>
+            ${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" class="btn btn-green btn-sm">💬 Mở Zalo</a>` : ''}
+          </div>
+        </div>
+        <pre id="msg_${f.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;font-family:inherit;color:var(--text)">${msg}</pre>
+      </div>
+    `;
+  }
+  html += '</div>';
+  document.getElementById('zaloContent').innerHTML = html;
+}
+
+function buildZaloMsg(s, f, month) {
+  const mn = `Tháng ${parseInt(month)}`;
+  let lines = [`Cô gửi HP ${s.name} ${mn} ạ! 🌟`,''];
+  if (s.class_type === 'mamnon') {
+    lines.push(`HP ${mn}: ${fmt(f.base_fee)}`);
+    if (f.meal_fee) lines.push(`Tiền ăn (${f.sessions_present} buổi): ${fmt(f.meal_fee)}`);
+    if (f.zumba_fee) lines.push(`Zumba: ${fmt(f.zumba_fee)}`);
+  } else {
+    lines.push(`HP ${mn} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
+  }
+  if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
+  lines.push('');
+  lines.push(`Tổng: ${fmt(f.total)} đ`);
+  lines.push('');
+  lines.push('Cảm ơn phụ huynh!');
+  return lines.join('\n');
+}
+
+function copyMsg(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Đã copy tin nhắn ✓', 'success'));
+}
+
+// ============================================
+// EXPORT EXCEL
+// ============================================
+async function exportExcel(typeFilter = null) {
+  const month = document.getElementById('exportMonth').value;
+  if (!month) return showToast('Chọn tháng trước', 'error');
+  const fees = await api.get('monthly_fees', `?month=eq.${month}`);
+  if (!fees.length) return showToast('Chưa có dữ liệu học phí', 'error');
+  const studentMap = {};
+  allStudents.forEach(s => { studentMap[s.id] = s; });
+  const [yr, mo] = month.split('-');
+
+  let rows = [['STT','Tên học sinh','Loại lớp','Cấp lớp','Số buổi','HP cơ bản','Tiền ăn','Zumba','Giảm 10%','Tổng tiền','SĐT Zalo']];
+  let grandTotal = 0;
+  let stt = 1;
+  const filtered = fees.filter(f => {
+    const s = studentMap[f.student_id];
+    return !typeFilter || s?.class_type === typeFilter;
+  });
+  for (const f of filtered) {
+    const s = studentMap[f.student_id] || {};
+    if (typeFilter && s.class_type !== typeFilter) continue;
+    rows.push([stt++, s.name||'', typeLabel(s.class_type), s.class_level||'', f.sessions_present, f.base_fee, f.meal_fee||0, f.zumba_fee||0, f.discount_amount||0, f.total, s.phone_zalo||'']);
+    grandTotal += f.total;
+  }
+  rows.push(['','','','','','','','','','','']);
+  rows.push(['','','','','','','','','TỔNG CỘNG',grandTotal,'']);
+
+  // Build CSV
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `HocPhi_${typeFilter||'TatCa'}_T${mo}_${yr}.csv`;
+  a.click();
+  showToast('Đã xuất file ✓', 'success');
+}
+
+function exportExcelByType(type) { exportExcel(type); }
+
+// ============================================
+// DASHBOARD
+// ============================================
+function updateDashStats() {
+  document.getElementById('statTotal').textContent = allStudents.length;
+  document.getElementById('statMamnon').textContent = allStudents.filter(s=>s.class_type==='mamnon').length;
+  document.getElementById('statTA').textContent = allStudents.filter(s=>s.class_type==='tienganh').length;
+  document.getElementById('statToan').textContent = allStudents.filter(s=>s.class_type==='toan').length;
+}
+
+async function loadDashboard() {
+  const month = document.getElementById('dashMonth').value;
+  if (!month) return;
+  const [yr, mo] = month.split('-');
+  document.getElementById('dashMonthLabel').textContent = `Tháng ${parseInt(mo)}/${yr}`;
+  updateDashStats();
+  try {
+    const fees = await api.get('monthly_fees', `?month=eq.${month}`);
+    if (!fees.length) {
+      document.getElementById('dashFeeList').innerHTML = `<div class="empty-state"><div class="icon">💰</div><p>Chưa có dữ liệu học phí tháng này</p></div>`;
+      return;
+    }
+    const studentMap = {};
+    allStudents.forEach(s => { studentMap[s.id] = s; });
+    const byType = { mamnon: [], tienganh: [], toan: [] };
+    fees.forEach(f => {
+      const s = studentMap[f.student_id];
+      if (s) byType[s.class_type]?.push(f);
+    });
+    let html = '';
+    for (const [type, list] of Object.entries(byType)) {
+      if (!list.length) continue;
+      const total = list.reduce((s,f) => s+f.total, 0);
+      html += `
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">${typeLabel(type)} — ${list.length} học sinh</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+            ${list.map(f => {
+              const s = studentMap[f.student_id];
+              return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px">
+                <div style="font-weight:600">${s?.name||'?'}</div>
+                <div style="color:var(--accent)">${fmt(f.total)}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="text-align:right;font-size:13px;color:var(--muted)">Tổng ${typeLabel(type)}: <strong style="color:var(--accent)">${fmt(total)}</strong></div>
+        </div>
+      `;
+    }
+    const grand = fees.reduce((s,f)=>s+f.total,0);
+    html += `<div style="border-top:2px solid var(--accent);padding-top:12px;text-align:right;font-size:16px;font-weight:700">Tổng tháng ${parseInt(mo)}: <span style="color:var(--accent)">${fmt(grand)} đ</span></div>`;
+    document.getElementById('dashFeeList').innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+// ============================================
+// PASSWORD
+// ============================================
+async function changePassword() {
+  const old = document.getElementById('oldPass').value;
+  const n1 = document.getElementById('newPass').value;
+  const n2 = document.getElementById('newPass2').value;
+  if (!old || !n1 || !n2) return showToast('Điền đủ thông tin', 'error');
+  if (n1 !== n2) return showToast('Mật khẩu mới không khớp', 'error');
+  if (n1.length < 4) return showToast('Mật khẩu tối thiểu 4 ký tự', 'error');
+  try {
+    const rows = await api.get('app_settings', '?key=eq.admin_password');
+    if (rows[0]?.value !== old) return showToast('Mật khẩu hiện tại không đúng', 'error');
+    await api.patch('app_settings', { value: n1 }, '?key=eq.admin_password');
+    showToast('Đã đổi mật khẩu ✓', 'success');
+    ['oldPass','newPass','newPass2'].forEach(id => document.getElementById(id).value = '');
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// UTILS
+// ============================================
+function fmt(n) {
+  if (!n) return '0';
+  return Number(n).toLocaleString('vi-VN');
+}
+function formatDate(d) {
+  if (!d) return '-';
+  const [y,m,day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+function typeLabel(t) {
+  return { mamnon:'Mầm non', tienganh:'Tiếng Anh', toan:'Toán' }[t] || t;
+}
+function formatDays(days) {
+  if (!days || !days.length) return '-';
+  const map = {'0':'CN','2':'T2','3':'T3','4':'T4','5':'T5','6':'T6','7':'T7'};
+  return days.map(d => map[d] || d).join(', ');
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Auto-init nếu đã có config
+if (SUPABASE_URL && SUPABASE_KEY) {
+  document.getElementById('inputUrl').value = SUPABASE_URL;
+  document.getElementById('inputKey').value = SUPABASE_KEY;
+}
+</script>
+</body>
+</html>

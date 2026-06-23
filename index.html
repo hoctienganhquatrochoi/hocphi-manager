@@ -671,6 +671,10 @@ async function initApp() {
   await loadFeeConfigs();
   await loadClasses();
   await loadStudents();
+  // Init dropdowns
+  populateClassDropdown('feeClassFilter', 'all');
+  populateClassDropdown('zaloClassFilter', 'all');
+  populateClassDropdown('exportClassFilter', 'all');
   loadDashboard();
 }
 
@@ -1144,6 +1148,8 @@ function getScheduledDates(days, year, month) {
 async function loadFees() {
   const month = document.getElementById('feeMonth').value;
   if (!month) return;
+  populateClassDropdown('feeClassFilter', 'all');
+  const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
   try {
     const fees = await api.get('monthly_fees', `?month=eq.${month}&order=student_id`);
     if (!fees.length) {
@@ -1151,7 +1157,12 @@ async function loadFees() {
       document.getElementById('feeTotalRow').style.display = 'none';
       return;
     }
-    renderFeeTable(fees);
+    const filtered = fees.filter(f => {
+      if (classFilter === 'all') return true;
+      const s = allStudents.find(x => x.id === f.student_id);
+      return s && (s.class_id === classFilter || s.class_type === classFilter);
+    });
+    renderFeeTable(filtered);
   } catch(e) { console.error(e); }
 }
 
@@ -1226,6 +1237,11 @@ function renderFeeTable(fees) {
 async function loadZaloList() {
   const month = document.getElementById('zaloMonth').value;
   if (!month) return;
+  const classFilter = document.getElementById('zaloClassFilter')?.value || 'all';
+  
+  // Populate class dropdown
+  populateClassDropdown('zaloClassFilter', 'all');
+
   const fees = await api.get('monthly_fees', `?month=eq.${month}`);
   if (!fees.length) {
     document.getElementById('zaloContent').innerHTML = `<div class="empty-state"><div class="icon">💬</div><p>Chưa có dữ liệu học phí tháng này. Tính học phí trước nhé.</p></div>`;
@@ -1234,25 +1250,47 @@ async function loadZaloList() {
   const studentMap = {};
   allStudents.forEach(s => { studentMap[s.id] = s; });
   const [, mo] = month.split('-');
-  let html = '<div style="display:grid;gap:12px">';
+
+  // Group by class
+  const grouped = {};
   for (const f of fees) {
     const s = studentMap[f.student_id];
     if (!s) continue;
-    const msg = buildZaloMsg(s, f, mo);
-    html += `
-      <div class="card" style="padding:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div><strong>${s.name}</strong> <span class="badge badge-${s.class_type}" style="margin-left:6px">${typeLabel(s.class_type)}</span></div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-secondary btn-sm" onclick="copyMsg('msg_${f.id}')">📋 Copy</button>
-            ${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" class="btn btn-green btn-sm">💬 Mở Zalo</a>` : ''}
-          </div>
-        </div>
-        <pre id="msg_${f.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;font-family:inherit;color:var(--text)">${msg}</pre>
-      </div>
-    `;
+    if (classFilter !== 'all' && s.class_id !== classFilter && s.class_type !== classFilter) continue;
+    const groupKey = s.class_id || s.class_type;
+    const groupName = s.class_id ? (allClasses.find(c=>c.id===s.class_id)?.name || typeLabel(s.class_type)) : typeLabel(s.class_type);
+    if (!grouped[groupKey]) grouped[groupKey] = { name: groupName, type: s.class_type, items: [] };
+    grouped[groupKey].items.push({ f, s });
   }
-  html += '</div>';
+
+  if (!Object.keys(grouped).length) {
+    document.getElementById('zaloContent').innerHTML = `<div class="empty-state"><div class="icon">💬</div><p>Không có dữ liệu</p></div>`;
+    return;
+  }
+
+  let html = '';
+  for (const [, group] of Object.entries(grouped)) {
+    html += `<div style="margin-bottom:24px">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+        🏫 ${group.name}
+      </div>
+      <div style="display:grid;gap:10px">`;
+    for (const { f, s } of group.items) {
+      const msg = buildZaloMsg(s, f, mo);
+      html += `
+        <div class="card" style="padding:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div><strong>${s.name}</strong> <span class="badge badge-${s.class_type}" style="margin-left:6px">${typeLabel(s.class_type)}</span></div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm" onclick="copyMsg('msg_${f.id}')">📋 Copy</button>
+              ${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" class="btn btn-green btn-sm">💬 Mở Zalo</a>` : ''}
+            </div>
+          </div>
+          <pre id="msg_${f.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;font-family:inherit;color:var(--text)">${msg}</pre>
+        </div>`;
+    }
+    html += '</div></div>';
+  }
   document.getElementById('zaloContent').innerHTML = html;
 }
 
@@ -1282,43 +1320,102 @@ function copyMsg(id) {
 // ============================================
 // EXPORT EXCEL
 // ============================================
-async function exportExcel(typeFilter = null) {
+async function exportExcel() {
   const month = document.getElementById('exportMonth').value;
   if (!month) return showToast('Chọn tháng trước', 'error');
+  const classFilter = document.getElementById('exportClassFilter')?.value || 'all';
+  const [yr, mo] = month.split('-');
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+
+  // Get fees
   const fees = await api.get('monthly_fees', `?month=eq.${month}`);
   if (!fees.length) return showToast('Chưa có dữ liệu học phí', 'error');
+
   const studentMap = {};
   allStudents.forEach(s => { studentMap[s.id] = s; });
-  const [yr, mo] = month.split('-');
 
-  let rows = [['STT','Tên học sinh','Loại lớp','Cấp lớp','Số buổi','HP cơ bản','Tiền ăn','Zumba','Giảm 10%','Tổng tiền','SĐT Zalo']];
+  // Filter students
+  const filtered = fees.filter(f => {
+    if (classFilter === 'all') return true;
+    const s = studentMap[f.student_id];
+    return s && (s.class_id === classFilter || s.class_type === classFilter);
+  });
+  if (!filtered.length) return showToast('Không có dữ liệu cho lớp này', 'error');
+
+  // Get attendance for all filtered students
+  const studentIds = filtered.map(f => f.student_id);
+  const attRecords = await api.get('attendance', `?student_id=in.(${studentIds.join(',')})&date=gte.${month}-01&date=lte.${month}-${String(daysInMonth).padStart(2,'0')}`);
+  const attMap = {};
+  attRecords.forEach(r => { attMap[`${r.student_id}_${r.date}`] = r.present; });
+
+  // Build CSV - Sheet 1: Summary
+  let rows = [];
+  const className = classFilter === 'all' ? 'Tất cả lớp' : (allClasses.find(c=>c.id===classFilter)?.name || classFilter);
+  rows.push([`BÁO CÁO HỌC PHÍ THÁNG ${parseInt(mo)}/${yr} - ${className}`]);
+  rows.push([]);
+  rows.push(['STT','Tên học sinh','Lớp','Số buổi','HP cơ bản','Tiền ăn','Zumba','Giảm 10%','Tổng tiền','SĐT Zalo']);
+
   let grandTotal = 0;
   let stt = 1;
-  const filtered = fees.filter(f => {
-    const s = studentMap[f.student_id];
-    return !typeFilter || s?.class_type === typeFilter;
-  });
   for (const f of filtered) {
     const s = studentMap[f.student_id] || {};
-    if (typeFilter && s.class_type !== typeFilter) continue;
-    rows.push([stt++, s.name||'', typeLabel(s.class_type), s.class_level||'', f.sessions_present, f.base_fee, f.meal_fee||0, f.zumba_fee||0, f.discount_amount||0, f.total, s.phone_zalo||'']);
+    const cls = allClasses.find(c => c.id === s.class_id);
+    rows.push([stt++, s.name||'', cls?.name||typeLabel(s.class_type), f.sessions_present, f.base_fee, f.meal_fee||0, f.zumba_fee||0, f.discount_amount||0, f.total, s.phone_zalo||'']);
     grandTotal += f.total;
   }
-  rows.push(['','','','','','','','','','','']);
-  rows.push(['','','','','','','','','TỔNG CỘNG',grandTotal,'']);
+  rows.push([]);
+  rows.push(['','','','','','','','TỔNG CỘNG','',grandTotal,'']);
+  rows.push([]);
+  rows.push([]);
+
+  // Sheet 2: Attendance detail
+  rows.push([`ĐIỂM DANH CHI TIẾT THÁNG ${parseInt(mo)}/${yr}`]);
+  rows.push([]);
+
+  // Get all scheduled dates for each student
+  for (const f of filtered) {
+    const s = studentMap[f.student_id];
+    if (!s) continue;
+    const scheduledDates = getScheduledDates(s.schedule_days || [], parseInt(yr), parseInt(mo));
+    if (!scheduledDates.length) continue;
+
+    // Header row: Tên + dates
+    const headerRow = ['Tên'];
+    scheduledDates.forEach(d => {
+      const day = parseInt(d.split('-')[2]);
+      const dateObj = new Date(d + 'T00:00:00');
+      const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+      headerRow.push(`${dayNames[dateObj.getDay()]} ${day}`);
+    });
+    headerRow.push('Có mặt', 'Nghỉ');
+    rows.push(headerRow);
+
+    // Student row
+    const studentRow = [s.name];
+    let presentCount = 0;
+    scheduledDates.forEach(date => {
+      const present = attMap[`${s.id}_${date}`] !== false;
+      if (present) presentCount++;
+      studentRow.push(present ? '✓' : '✗');
+    });
+    studentRow.push(presentCount, scheduledDates.length - presentCount);
+    rows.push(studentRow);
+    rows.push([]);
+  }
 
   // Build CSV
-  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const bom = '\uFEFF';
   const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `HocPhi_${typeFilter||'TatCa'}_T${mo}_${yr}.csv`;
+  const safeName = className.replace(/[^a-zA-Z0-9]/g, '_');
+  a.download = `HocPhi_${safeName}_T${mo}_${yr}.csv`;
   a.click();
   showToast('Đã xuất file ✓', 'success');
 }
 
-function exportExcelByType(type) { exportExcel(type); }
+function exportExcelByType(type) { exportExcel(); }
 
 // ============================================
 // DASHBOARD

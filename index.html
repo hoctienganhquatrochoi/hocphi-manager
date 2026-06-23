@@ -332,16 +332,13 @@
     <div id="page-attendance" class="page">
       <div class="page-header">
         <div class="page-title">📅 Điểm danh</div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="month" id="attMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadAttendance()">
+          <select id="attClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadAttendance()">
+            <option value="all">Tất cả lớp</option>
+          </select>
           <button class="btn btn-secondary" onclick="loadAttendance()">🔄 Tải lại</button>
         </div>
-      </div>
-      <div class="tabs">
-        <button class="tab active" onclick="filterAttType('all',this)">Tất cả</button>
-        <button class="tab" onclick="filterAttType('mamnon',this)">Mầm non</button>
-        <button class="tab" onclick="filterAttType('tienganh',this)">Tiếng Anh</button>
-        <button class="tab" onclick="filterAttType('toan',this)">Toán</button>
       </div>
       <div id="attendanceContent"><div class="empty-state"><div class="icon">📅</div><p>Chọn tháng để xem điểm danh</p></div></div>
     </div>
@@ -683,9 +680,9 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   event?.target?.closest('.nav-item')?.classList.add('active');
   if (name === 'classes') { loadClasses(); }
-  if (name === 'attendance') loadAttendance();
-  if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); }
-  if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); }
+  if (name === 'attendance') { populateClassDropdown('attClassFilter', 'all'); loadAttendance(); }
+  if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); loadFees(); }
+  if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); loadZaloList(); }
   if (name === 'export') { populateClassDropdown('exportClassFilter', 'all'); }
   if (name === 'fees') loadFees();
   if (name === 'zalo') loadZaloList();
@@ -771,6 +768,12 @@ function renderClasses(filter) {
       </td>
     </tr>
   `).join('');
+  // Refresh all dropdowns
+  setTimeout(() => {
+    ['feeClassFilter','zaloClassFilter','exportClassFilter','attClassFilter'].forEach(id => {
+      populateClassDropdown(id, 'all');
+    });
+  }, 100);
 }
 
 function filterClassType(type, el) {
@@ -1015,7 +1018,11 @@ async function deleteStudent(id, name) {
 async function loadAttendance() {
   const month = document.getElementById('attMonth').value;
   if (!month) return;
-  const students = allStudents.filter(s => currentAttFilter === 'all' || s.class_type === currentAttFilter);
+  const classFilter = document.getElementById('attClassFilter')?.value || 'all';
+  const students = allStudents.filter(s => {
+    if (classFilter === 'all') return true;
+    return s.class_id === classFilter || s.class_type === classFilter;
+  });
   if (!students.length) {
     document.getElementById('attendanceContent').innerHTML = `<div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div>`;
     return;
@@ -1123,8 +1130,6 @@ async function toggleAtt(studentId, date, btn) {
 
 function filterAttType(type, el) {
   currentAttFilter = type;
-  document.querySelectorAll('#page-attendance .tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
   loadAttendance();
 }
 

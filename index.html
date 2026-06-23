@@ -170,47 +170,40 @@
     background: var(--surface);
     border-top: 1px solid var(--border);
     z-index: 200;
-    padding: 6px 0 8px;
+    padding: 6px 0 env(safe-area-inset-bottom, 8px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .bottom-nav::-webkit-scrollbar { display: none; }
+  .bottom-nav-inner {
+    display: inline-flex;
+    padding: 0 8px;
+    gap: 4px;
+    min-width: 100%;
     justify-content: space-around;
-    align-items: center;
   }
   .bottom-nav-item {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px 10px;
     border-radius: 8px;
     color: var(--muted);
     font-size: 10px;
-    min-width: 48px;
+    min-width: 56px;
+    flex-shrink: 0;
     transition: all 0.15s;
     border: none;
     background: none;
+    white-space: nowrap;
   }
   .bottom-nav-item.active { color: var(--accent); }
-  .bottom-nav-item .bnav-icon { font-size: 20px; }
-  .bottom-nav-more {
-    position: fixed;
-    bottom: 70px; left: 0; right: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    z-index: 199;
-    padding: 12px;
-    display: none;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-  .bottom-nav-more.show { display: grid; }
-  .more-item {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 10px 4px; border-radius: 10px; cursor: pointer;
-    background: var(--surface2); color: var(--muted); font-size: 11px;
-    border: 1px solid var(--border);
-  }
-  .more-item:active { background: var(--border); }
-  .more-item .mi-icon { font-size: 22px; }
+  .bottom-nav-item .bnav-icon { font-size: 22px; }
 </style>
 </head>
 <body>
@@ -513,45 +506,38 @@
     </div>
 
   </div><!-- /main -->
-  <!-- BOTTOM NAV (mobile) -->
+  <!-- BOTTOM NAV (mobile) - scroll ngang -->
   <nav class="bottom-nav" id="bottomNav">
-    <button class="bottom-nav-item active" onclick="showPageMobile('dashboard',this)">
-      <span class="bnav-icon">📊</span><span>Tổng quan</span>
-    </button>
-    <button class="bottom-nav-item" onclick="showPageMobile('students',this)">
-      <span class="bnav-icon">👨‍🎓</span><span>Học sinh</span>
-    </button>
-    <button class="bottom-nav-item" onclick="showPageMobile('attendance',this)">
-      <span class="bnav-icon">📅</span><span>Điểm danh</span>
-    </button>
-    <button class="bottom-nav-item" onclick="showPageMobile('fees',this)">
-      <span class="bnav-icon">💰</span><span>Học phí</span>
-    </button>
-    <button class="bottom-nav-item" onclick="toggleMoreMenu(this)">
-      <span class="bnav-icon">☰</span><span>Thêm</span>
-    </button>
+    <div class="bottom-nav-inner">
+      <button class="bottom-nav-item active" onclick="showPageMobile('dashboard',this)">
+        <span class="bnav-icon">📊</span><span>Tổng quan</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('students',this)">
+        <span class="bnav-icon">👨‍🎓</span><span>Học sinh</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('classes',this)">
+        <span class="bnav-icon">🏫</span><span>Lớp học</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('attendance',this)">
+        <span class="bnav-icon">📅</span><span>Điểm danh</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('fees',this)">
+        <span class="bnav-icon">💰</span><span>Học phí</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('zalo',this)">
+        <span class="bnav-icon">💬</span><span>Gửi Zalo</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('export',this)">
+        <span class="bnav-icon">📤</span><span>Xuất Excel</span>
+      </button>
+      <button class="bottom-nav-item" onclick="showPageMobile('settings',this)">
+        <span class="bnav-icon">⚙️</span><span>Cài đặt</span>
+      </button>
+      <button class="bottom-nav-item" onclick="doLogout()">
+        <span class="bnav-icon">🚪</span><span>Đăng xuất</span>
+      </button>
+    </div>
   </nav>
-  <!-- MORE MENU -->
-  <div class="bottom-nav-more" id="moreMenu">
-    <div class="more-item" onclick="showPageMobile('classes');closeMore()">
-      <span class="mi-icon">🏫</span><span>Quản lý lớp</span>
-    </div>
-    <div class="more-item" onclick="showPageMobile('zalo');closeMore()">
-      <span class="mi-icon">💬</span><span>Gửi Zalo</span>
-    </div>
-    <div class="more-item" onclick="showPageMobile('export');closeMore()">
-      <span class="mi-icon">📤</span><span>Xuất Excel</span>
-    </div>
-    <div class="more-item" onclick="showPageMobile('config');closeMore()">
-      <span class="mi-icon">⚙️</span><span>Cấu hình phí</span>
-    </div>
-    <div class="more-item" onclick="showPageMobile('settings');closeMore()">
-      <span class="mi-icon">🔒</span><span>Cài đặt</span>
-    </div>
-    <div class="more-item" onclick="doLogout();closeMore()">
-      <span class="mi-icon">🚪</span><span>Đăng xuất</span>
-    </div>
-  </div>
 </div><!-- /app -->
 
 <!-- CLASS MODAL -->
@@ -792,23 +778,7 @@ function showPageMobile(name, el) {
   closeMore();
 }
 
-function toggleMoreMenu(btn) {
-  const menu = document.getElementById('moreMenu');
-  menu.classList.toggle('show');
-  btn.classList.toggle('active');
-}
-
-function closeMore() {
-  document.getElementById('moreMenu')?.classList.remove('show');
-  document.querySelector('.bottom-nav-item:last-child')?.classList.remove('active');
-}
-
-// Close more menu when clicking outside
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('.bottom-nav') && !e.target.closest('.bottom-nav-more')) {
-    closeMore();
-  }
-});
+function closeMore() {}
 
 function doLogout() {
   document.getElementById('loginPage').style.display = 'flex';

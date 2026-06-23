@@ -1074,13 +1074,16 @@ async function loadAttendance() {
   }
   document.getElementById('attendanceContent').innerHTML = html;
   // Event delegation for attendance buttons
-  document.getElementById('attendanceContent').onclick = async function(e) {
+  document.getElementById('attendanceContent').addEventListener('click', async function(e) {
     const btn = e.target.closest('.att-btn');
     if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
     const studentId = btn.dataset.student;
     const date = btn.dataset.date;
+    console.log('Click att:', studentId, date);
     await toggleAtt(studentId, date, btn);
-  };
+  });
 }
 
 async function toggleAtt(studentId, date, btn) {

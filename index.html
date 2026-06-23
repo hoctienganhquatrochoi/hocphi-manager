@@ -598,11 +598,37 @@ const api = {
 // ============================================
 // STATE
 // ============================================
+let allClasses = [];
 let allStudents = [];
 let currentFilter = 'all';
 let currentAttFilter = 'all';
 let editingStudentId = null;
 let feeConfigs = {};
+
+function populateClassDropdown(selectId, currentVal) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Tất cả lớp</option>';
+  const types = [
+    { key: 'mamnon', label: '🟡 Mầm non' },
+    { key: 'tienganh', label: '🔵 Tiếng Anh' },
+    { key: 'toan', label: '🟢 Toán' }
+  ];
+  types.forEach(t => {
+    const classes = allClasses.filter(c => c.class_type === t.key && c.active);
+    if (!classes.length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = t.label;
+    classes.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
+  });
+  if (currentVal) sel.value = currentVal;
+}
 
 // ============================================
 // SETUP & LOGIN

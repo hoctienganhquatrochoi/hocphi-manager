@@ -1202,11 +1202,13 @@ async function calcAllFees() {
       const subtotal = baseFee + mealFee + zumbaFee;
       const discount = s.discount_10 ? Math.round(subtotal * 0.1) : 0;
       const total = subtotal - discount;
-      await api.upsert('monthly_fees', {
-        student_id: s.id, month, sessions_present: sessions,
-        base_fee: baseFee, meal_fee: mealFee, zumba_fee: zumbaFee,
-        extra_fee: 0, discount_amount: discount, total, zalo_sent: false
-      });
+      const existingFee = await api.get('monthly_fees', `?student_id=eq.${s.id}&month=eq.${month}`);
+      const feeData = { student_id: s.id, month, sessions_present: sessions, base_fee: baseFee, meal_fee: mealFee, zumba_fee: zumbaFee, extra_fee: 0, discount_amount: discount, total, zalo_sent: false };
+      if (existingFee && existingFee.length > 0) {
+        await api.patch('monthly_fees', feeData, `?student_id=eq.${s.id}&month=eq.${month}`);
+      } else {
+        await api.post('monthly_fees', feeData);
+      }
     }
     showToast('Đã tính xong học phí ✓', 'success');
     loadFees();

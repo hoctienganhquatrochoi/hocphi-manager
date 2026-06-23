@@ -1426,7 +1426,7 @@ async function loadZaloList() {
               <button class="btn btn-secondary btn-sm" onclick="copyMsg('msg_${f.id}')">📋 Copy</button>
               ${s.phone_zalo ? `
   <button class="btn btn-secondary btn-sm" onclick="copyPhone('${s.phone_zalo}')">📱 Copy SĐT</button>
-  <a href="https://zalo.me/${s.phone_zalo}" class="btn btn-green btn-sm">💬 Mở Zalo</a>
+  <a href="https://zalo.me/${s.phone_zalo}" target="_blank" rel="noopener" class="btn btn-green btn-sm">💬 Mở Zalo</a>
 ` : ''}
             </div>
           </div>

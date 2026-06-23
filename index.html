@@ -1057,8 +1057,9 @@ async function loadAttendance() {
           data-student="${s.id}" data-date="${date}"
           style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.15s;
           background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
-          color:${present ? 'var(--green)' : 'var(--accent2)'};
+          color:${present ? '#3ecf8e' : '#e05c5c'};
           border-color:${present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)'}"
+          data-present="${present ? 'true' : 'false'}"
           title="${date} - ${present ? 'Có mặt' : 'Nghỉ'}">${dayLabel}</button>
       `;
     }
@@ -1087,27 +1088,30 @@ async function loadAttendance() {
 }
 
 async function toggleAtt(studentId, date, btn) {
-  const isPresent = btn.style.color.includes('62,207');
+  // Dùng data attribute để track trạng thái thay vì check màu
+  const isPresent = btn.dataset.present !== 'false';
   const newPresent = !isPresent;
   try {
-    // Check if record exists
     const existing = await api.get('attendance', `?student_id=eq.${studentId}&date=eq.${date}`);
     if (existing && existing.length > 0) {
       await api.patch('attendance', { present: newPresent }, `?student_id=eq.${studentId}&date=eq.${date}`);
     } else {
       await api.post('attendance', { student_id: studentId, date, present: newPresent });
     }
+    // Update UI
+    btn.dataset.present = newPresent ? 'true' : 'false';
     btn.style.background = newPresent ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)';
-    btn.style.color = newPresent ? 'var(--green)' : 'var(--accent2)';
+    btn.style.color = newPresent ? '#3ecf8e' : '#e05c5c';
     btn.style.borderColor = newPresent ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)';
     btn.title = `${date} - ${newPresent ? 'Có mặt' : 'Nghỉ'}`;
     // Update count
     const parentCard = btn.closest('.card');
-    const btns = parentCard.querySelectorAll('[onclick^="toggleAtt"]');
-    const presentCount = [...btns].filter(b => b.style.color.includes('62,207')).length;
+    const allBtns = parentCard.querySelectorAll('.att-btn');
+    const presentCount = [...allBtns].filter(b => b.dataset.present !== 'false').length;
     const countEl = parentCard.querySelector('[id^="present_"]');
     if (countEl) countEl.textContent = presentCount;
-  } catch(e) { showToast('Lỗi lưu điểm danh: ' + e.message, 'error'); }
+    showToast(newPresent ? '✓ Có mặt' : '✗ Nghỉ', newPresent ? 'success' : 'error');
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
 function filterAttType(type, el) {

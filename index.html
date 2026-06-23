@@ -671,10 +671,6 @@ async function initApp() {
   await loadFeeConfigs();
   await loadClasses();
   await loadStudents();
-  // Init dropdowns
-  populateClassDropdown('feeClassFilter', 'all');
-  populateClassDropdown('zaloClassFilter', 'all');
-  populateClassDropdown('exportClassFilter', 'all');
   loadDashboard();
 }
 
@@ -688,6 +684,9 @@ function showPage(name) {
   event?.target?.closest('.nav-item')?.classList.add('active');
   if (name === 'classes') { loadClasses(); }
   if (name === 'attendance') loadAttendance();
+  if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); }
+  if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); }
+  if (name === 'export') { populateClassDropdown('exportClassFilter', 'all'); }
   if (name === 'fees') loadFees();
   if (name === 'zalo') loadZaloList();
   if (name === 'config') loadConfigForm();
@@ -741,6 +740,10 @@ async function loadClasses() {
   try {
     allClasses = await api.get('classes', '?active=eq.true&order=name.asc');
     renderClasses();
+    // Update all dropdowns
+    ['feeClassFilter','zaloClassFilter','exportClassFilter'].forEach(id => {
+      populateClassDropdown(id, 'all');
+    });
   } catch(e) { console.error(e); }
 }
 

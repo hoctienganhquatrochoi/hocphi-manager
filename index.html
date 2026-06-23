@@ -173,7 +173,7 @@
     <div style="font-size:40px;margin-bottom:12px">🏫</div>
     <h1>HocPhi Manager</h1>
     <p>Quản lý học phí thông minh</p>
-    <div id="setupGuide" style="display:none">
+    <div id="setupGuide" style="display:none;margin-bottom:12px">
       <div class="setup-box">
         <h3>⚙️ Cần cấu hình Supabase</h3>
         <ol>
@@ -189,7 +189,10 @@
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-      <input type="password" id="loginPass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter')doLogin()" />
+      <div style="position:relative">
+        <input type="password" id="loginPass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:44px" />
+        <button onclick="togglePassVis('loginPass',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁️</button>
+      </div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">🔑 Đăng nhập</button>
       <button class="btn btn-secondary" style="width:100%;justify-content:center;font-size:12px" onclick="toggleSetup()">⚙️ Cấu hình Supabase</button>
     </div>
@@ -447,9 +450,15 @@
       <div class="card" style="max-width:400px">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px">Đổi mật khẩu</div>
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div class="form-group"><label>Mật khẩu hiện tại</label><input type="password" id="oldPass" /></div>
-          <div class="form-group"><label>Mật khẩu mới</label><input type="password" id="newPass" /></div>
-          <div class="form-group"><label>Nhập lại mật khẩu mới</label><input type="password" id="newPass2" /></div>
+          <div class="form-group"><label>Mật khẩu hiện tại</label>
+            <div style="position:relative"><input type="password" id="oldPass" style="padding-right:44px"/><button onclick="togglePassVis('oldPass',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁️</button></div>
+          </div>
+          <div class="form-group"><label>Mật khẩu mới</label>
+            <div style="position:relative"><input type="password" id="newPass" style="padding-right:44px"/><button onclick="togglePassVis('newPass',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁️</button></div>
+          </div>
+          <div class="form-group"><label>Nhập lại mật khẩu mới</label>
+            <div style="position:relative"><input type="password" id="newPass2" style="padding-right:44px"/><button onclick="togglePassVis('newPass2',this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁️</button></div>
+          </div>
           <button class="btn btn-primary" onclick="changePassword()">🔒 Đổi mật khẩu</button>
         </div>
       </div>
@@ -548,8 +557,9 @@
 // ============================================
 // CONFIG
 // ============================================
-let SUPABASE_URL = localStorage.getItem('hpm_url') || '';
-let SUPABASE_KEY = localStorage.getItem('hpm_key') || '';
+// Config mặc định - đã lưu sẵn
+let SUPABASE_URL = localStorage.getItem('hpm_url') || 'https://pbxzxjlbecaebsueuwqa.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('hpm_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBieHp4amxiZWNhZWJzdWV1d3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTI5ODgsImV4cCI6MjA5Nzc2ODk4OH0.TWdDQcRQJwp_968D4PkjeiVDf6FufQz4xWeMFL8RxRw';
 
 // ============================================
 // SUPABASE API
@@ -1542,6 +1552,17 @@ async function changePassword() {
 // ============================================
 // UTILS
 // ============================================
+function togglePassVis(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
+
 function fmt(n) {
   if (!n) return '0';
   return Number(n).toLocaleString('vi-VN');

@@ -1390,7 +1390,7 @@ async function loadZaloList() {
   }
   const studentMap = {};
   allStudents.forEach(s => { studentMap[s.id] = s; });
-  const [, mo] = month.split('-');
+  const [yr, mo] = month.split('-');
 
   // Group by class
   const grouped = {};
@@ -1417,7 +1417,7 @@ async function loadZaloList() {
       </div>
       <div style="display:grid;gap:10px">`;
     for (const { f, s } of group.items) {
-      const msg = buildZaloMsg(s, f, mo);
+      const msg = await buildZaloMsg(s, f, mo, yr);
       html += `
         <div class="card" style="padding:16px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1438,15 +1438,42 @@ async function loadZaloList() {
   document.getElementById('zaloContent').innerHTML = html;
 }
 
-function buildZaloMsg(s, f, month) {
-  const mn = `Tháng ${parseInt(month)}`;
-  let lines = [`Cô gửi HP ${s.name} ${mn} ạ! 🌟`,''];
+async function buildZaloMsg(s, f, month, year) {
+  const mo = parseInt(month);
+  const yr = parseInt(year);
+  
+  // Get absent dates
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const startDate = `${year}-${month}-01`;
+  const endDate = `${year}-${month}-${String(daysInMonth).padStart(2,'0')}`;
+  const attRecords = await api.get('attendance', `?student_id=eq.${s.id}&date=gte.${startDate}&date=lte.${endDate}&present=eq.false`);
+  const absentDates = attRecords.map(r => {
+    const d = new Date(r.date + 'T00:00:00');
+    return `${d.getDate()}/${mo}`;
+  });
+
+  let lines = [];
   if (s.class_type === 'mamnon') {
-    lines.push(`HP ${mn}: ${fmt(f.base_fee)}`);
-    if (f.meal_fee) lines.push(`Tiền ăn (${f.sessions_present} buổi): ${fmt(f.meal_fee)}`);
+    // Mầm non: HP tháng sau, tiền ăn tháng này
+    const nextMonth = mo === 12 ? 1 : mo + 1;
+    lines.push(`Cô gửi HP ${s.name} Tháng ${nextMonth} ạ! ⭐`);
+    lines.push('');
+    lines.push(`HP Tháng ${nextMonth}: ${fmt(f.base_fee)}`);
+    lines.push(`Tiền ăn: ${fmt(f.meal_fee)}`);
     if (f.zumba_fee) lines.push(`Zumba: ${fmt(f.zumba_fee)}`);
+    if (absentDates.length > 0) {
+      const unit = absentDates.length === 1 ? 'ngày' : 'ngày';
+      lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ${unit} (${absentDates.join(', ')})`);
+    }
   } else {
-    lines.push(`HP ${mn} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
+    // TA/Toán: HP tháng này
+    lines.push(`Cô gửi HP ${s.name} Tháng ${mo} ạ! ⭐`);
+    lines.push('');
+    lines.push(`HP Tháng ${mo} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
+    if (absentDates.length > 0) {
+      const unit = absentDates.length === 1 ? 'buổi' : 'buổi';
+      lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ${unit} (${absentDates.join(', ')})`);
+    }
   }
   if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
   lines.push('');

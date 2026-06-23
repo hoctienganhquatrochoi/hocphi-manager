@@ -1193,7 +1193,6 @@ function getScheduledDates(days, year, month) {
 async function loadFees() {
   const month = document.getElementById('feeMonth').value;
   if (!month) return;
-  populateClassDropdown('feeClassFilter', 'all');
   const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
   try {
     const fees = await api.get('monthly_fees', `?month=eq.${month}&order=student_id`);

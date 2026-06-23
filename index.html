@@ -349,7 +349,7 @@
         <div class="page-title">💰 Học phí</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="month" id="feeMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadFees()">
-          <select id="feeClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadFees()">
+          <select id="feeClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px;min-width:160px" onchange="loadFees()">
             <option value="all">Tất cả lớp</option>
           </select>
           <button class="btn btn-primary" onclick="calcAllFees()">⚡ Tính học phí</button>
@@ -609,8 +609,18 @@ function populateClassDropdown(selectId, currentVal) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
   sel.innerHTML = '<option value="all">Tất cả lớp</option>';
+  
+  // Mầm non - always show as single option
+  const mnStudents = allStudents.filter(s => s.class_type === 'mamnon');
+  if (mnStudents.length) {
+    const opt = document.createElement('option');
+    opt.value = 'mamnon';
+    opt.textContent = '🟡 Mầm non';
+    sel.appendChild(opt);
+  }
+
+  // Tiếng Anh & Toán - show by class
   const types = [
-    { key: 'mamnon', label: '🟡 Mầm non' },
     { key: 'tienganh', label: '🔵 Tiếng Anh' },
     { key: 'toan', label: '🟢 Toán' }
   ];
@@ -1047,7 +1057,8 @@ async function loadAttendance() {
   const classFilter = document.getElementById('attClassFilter')?.value || 'all';
   const students = allStudents.filter(s => {
     if (classFilter === 'all') return true;
-    return s.class_id === classFilter || s.class_type === classFilter;
+    if (classFilter === 'mamnon') return s.class_type === 'mamnon';
+    return s.class_id === classFilter;
   });
   if (!students.length) {
     document.getElementById('attendanceContent').innerHTML = `<div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div>`;
@@ -1194,7 +1205,9 @@ async function loadFees() {
     const filtered = fees.filter(f => {
       if (classFilter === 'all') return true;
       const s = allStudents.find(x => x.id === f.student_id);
-      return s && (s.class_id === classFilter || s.class_type === classFilter);
+      if (!s) return false;
+      if (classFilter === 'mamnon') return s.class_type === 'mamnon';
+      return s.class_id === classFilter;
     });
     renderFeeTable(filtered);
   } catch(e) { console.error(e); }

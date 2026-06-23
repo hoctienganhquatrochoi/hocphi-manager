@@ -1424,7 +1424,10 @@ async function loadZaloList() {
             <div><strong>${s.name}</strong> <span class="badge badge-${s.class_type}" style="margin-left:6px">${typeLabel(s.class_type)}</span></div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-secondary btn-sm" onclick="copyMsg('msg_${f.id}')">📋 Copy</button>
-              ${s.phone_zalo ? `<button class="btn btn-green btn-sm" onclick="openZalo('${s.phone_zalo}')">💬 Mở Zalo</button>` : ''}
+              ${s.phone_zalo ? `
+  <button class="btn btn-secondary btn-sm" onclick="copyPhone('${s.phone_zalo}')">📱 Copy SĐT</button>
+  <a href="https://zalo.me/${s.phone_zalo}" target="_blank" class="btn btn-green btn-sm">💬 Mở Zalo</a>
+` : ''}
             </div>
           </div>
           <pre id="msg_${f.id}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;font-family:inherit;color:var(--text)">${msg}</pre>
@@ -1635,15 +1638,8 @@ async function changePassword() {
 // ============================================
 // UTILS
 // ============================================
-function openZalo(phone) {
-  // Try app deep link first, fallback to zalo.me
-  const clean = phone.replace(/[^0-9]/g, '');
-  // Try opening Zalo app directly
-  window.location.href = 'zalo://conversation?phone=' + clean;
-  // Fallback after 1s if app not opened
-  setTimeout(() => {
-    window.open('https://zalo.me/' + clean, '_blank');
-  }, 1000);
+function copyPhone(phone) {
+  navigator.clipboard.writeText(phone).then(() => showToast('Đã copy SĐT: ' + phone + ' → Paste vào Zalo PC để tìm kiếm', 'success'));
 }
 
 function togglePassVis(inputId, btn) {

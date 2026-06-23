@@ -1053,7 +1053,8 @@ async function loadAttendance() {
       const d = new Date(date + 'T00:00:00');
       const dayLabel = d.getDate();
       html += `
-        <button onclick="toggleAtt('${s.id}','${date}',this)"
+        <button class="att-btn"
+          data-student="${s.id}" data-date="${date}"
           style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.15s;
           background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
           color:${present ? 'var(--green)' : 'var(--accent2)'};
@@ -1072,6 +1073,14 @@ async function loadAttendance() {
     }, 0);
   }
   document.getElementById('attendanceContent').innerHTML = html;
+  // Event delegation for attendance buttons
+  document.getElementById('attendanceContent').onclick = async function(e) {
+    const btn = e.target.closest('.att-btn');
+    if (!btn) return;
+    const studentId = btn.dataset.student;
+    const date = btn.dataset.date;
+    await toggleAtt(studentId, date, btn);
+  };
 }
 
 async function toggleAtt(studentId, date, btn) {

@@ -142,6 +142,12 @@
   .setup-box input { margin-top: 10px; }
 
   .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .inline-input { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; color: var(--text); font-size: 13px; width: 100%; outline: none; transition: all 0.15s; }
+  .inline-input:focus { background: var(--surface2); border-color: var(--accent); }
+  .inline-input:hover { background: var(--surface2); border-color: var(--border); }
+  .inline-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .student-table td { padding: 8px 10px; vertical-align: middle; }
+  .student-table th { padding: 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; }
   .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
   .empty-state p { font-size: 14px; }
 
@@ -311,37 +317,14 @@
     <div id="page-students" class="page">
       <div class="page-header">
         <div class="page-title">👨‍🎓 Học sinh</div>
-        <button class="btn btn-primary" onclick="openStudentModal()">+ Thêm học sinh</button>
-      </div>
-      <div class="search-bar">
-        <input type="text" class="search-input" placeholder="🔍 Tìm theo tên..." oninput="filterStudents(this.value)" />
-        <div class="tabs" style="margin:0">
-          <button class="tab active" onclick="filterByType('all',this)">Tất cả</button>
-          <button class="tab" onclick="filterByType('mamnon',this)">Mầm non</button>
-          <button class="tab" onclick="filterByType('tienganh',this)">Tiếng Anh</button>
-          <button class="tab" onclick="filterByType('toan',this)">Toán</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="studentClassFilter" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px;min-width:180px" onchange="loadStudentsByClass()">
+            <option value="all">-- Chọn lớp --</option>
+          </select>
         </div>
       </div>
-      <div class="card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Tên học sinh</th>
-                <th>Ngày sinh</th>
-                <th>Loại lớp</th>
-                <th>Lịch học</th>
-                <th>Zalo</th>
-                <th>Giảm 10%</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody id="studentTableBody">
-              <tr><td colspan="8"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Chưa có học sinh</p></div></td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div id="studentClassContent">
+        <div class="empty-state"><div class="icon">🏫</div><p>Chọn lớp để xem và nhập học sinh</p></div>
       </div>
     </div>
 
@@ -694,12 +677,19 @@ function populateClassDropdown(selectId, currentVal) {
   sel.innerHTML = '<option value="all">Tất cả lớp</option>';
   
   // Mầm non - always show as single option
-  const mnStudents = allStudents.filter(s => s.class_type === 'mamnon');
-  if (mnStudents.length) {
+  if (selectId === 'studentClassFilter') {
     const opt = document.createElement('option');
     opt.value = 'mamnon';
     opt.textContent = '🟡 Mầm non';
     sel.appendChild(opt);
+  } else {
+    const mnStudents = allStudents.filter(s => s.class_type === 'mamnon');
+    if (mnStudents.length) {
+      const opt = document.createElement('option');
+      opt.value = 'mamnon';
+      opt.textContent = '🟡 Mầm non';
+      sel.appendChild(opt);
+    }
   }
 
   // Tiếng Anh & Toán - show by class
@@ -809,6 +799,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   event?.target?.closest('.nav-item')?.classList.add('active');
   if (name === 'classes') { loadClasses(); }
+  if (name === 'students') { populateClassDropdown('studentClassFilter', 'all'); loadStudentsByClass(); }
   if (name === 'attendance') { populateClassDropdown('attClassFilter', 'all'); loadAttendance(); }
   if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); loadFees(); }
   if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); loadZaloList(); }
@@ -964,6 +955,219 @@ async function deleteClass(id, name) {
     await api.delete('classes', `?id=eq.${id}`);
     showToast('Đã xóa ✓', 'success');
     await loadClasses();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// STUDENTS - Class based
+// ============================================
+
+let currentClassStudents = []; // students in selected class
+let pendingChanges = {}; // track changes before save
+
+async function loadStudentsByClass() {
+  const classId = document.getElementById('studentClassFilter').value;
+  if (classId === 'all') {
+    document.getElementById('studentClassContent').innerHTML = `<div class="empty-state"><div class="icon">🏫</div><p>Chọn lớp để xem và nhập học sinh</p></div>`;
+    return;
+  }
+
+  // Find class info
+  let cls, isMamnon = false;
+  if (classId === 'mamnon') {
+    cls = { name: 'Mầm non', class_type: 'mamnon', schedule_days: ['2','3','4','5','6','7'] };
+    isMamnon = true;
+  } else {
+    cls = allClasses.find(c => c.id === classId);
+  }
+  if (!cls) return;
+
+  // Get students in this class
+  let students;
+  if (isMamnon) {
+    students = allStudents.filter(s => s.class_type === 'mamnon');
+  } else {
+    students = allStudents.filter(s => s.class_id === classId);
+  }
+  currentClassStudents = [...students];
+
+  renderClassStudentTable(cls, students, classId);
+}
+
+function renderClassStudentTable(cls, students, classId) {
+  const otherClasses = allClasses.filter(c => c.id !== classId);
+  
+  let rows = students.map((s, i) => buildStudentRow(s, i, otherClasses, classId)).join('');
+  // Add empty row for new student
+  rows += buildEmptyRow(students.length, otherClasses, classId);
+
+  const html = `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:700">🏫 ${cls.name} <span style="color:var(--muted);font-size:13px;font-weight:400">(${students.length} học sinh)</span></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="addNewRow('${classId}')">+ Thêm hàng</button>
+          <button class="btn btn-primary" onclick="saveAllStudents('${classId}')">💾 Lưu tất cả</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="student-table" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th>#</th>
+              <th>Tên học sinh *</th>
+              <th>Ngày sinh</th>
+              <th>SĐT Zalo</th>
+              <th>Phụ huynh</th>
+              <th style="text-align:center">Giảm 10%</th>
+              <th>Chuyển lớp</th>
+              <th>Xóa</th>
+            </tr>
+          </thead>
+          <tbody id="classStudentBody">${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  document.getElementById('studentClassContent').innerHTML = html;
+}
+
+function buildStudentRow(s, i, otherClasses, currentClassId) {
+  const classOptions = otherClasses.map(c => 
+    `<option value="${c.id}">${c.name}</option>`
+  ).join('');
+  
+  return `<tr data-student-id="${s.id}" style="border-bottom:1px solid rgba(46,51,72,0.4)">
+    <td style="color:var(--muted);font-size:12px">${i+1}</td>
+    <td><input class="inline-input" value="${s.name||''}" data-field="name" placeholder="Tên học sinh *" /></td>
+    <td><input class="inline-input" type="date" value="${s.date_of_birth||''}" data-field="dob" /></td>
+    <td><input class="inline-input" value="${s.phone_zalo||''}" data-field="phone" placeholder="0912..." /></td>
+    <td><input class="inline-input" value="${s.parent_name||''}" data-field="parent" placeholder="Tên PH" /></td>
+    <td style="text-align:center"><input type="checkbox" class="inline-check" ${s.discount_10?'checked':''} data-field="discount" /></td>
+    <td>
+      <select class="inline-input" data-field="transfer" onchange="transferStudent('${s.id}',this.value,'${currentClassId}')" style="min-width:100px">
+        <option value="">-- Giữ nguyên --</option>
+        ${classOptions}
+      </select>
+    </td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteStudentRow('${s.id}',this)">🗑️</button></td>
+  </tr>`;
+}
+
+function buildEmptyRow(index, otherClasses, currentClassId) {
+  return `<tr data-student-id="new_${Date.now()}" style="border-bottom:1px solid rgba(46,51,72,0.4);background:rgba(240,165,0,0.03)">
+    <td style="color:var(--muted);font-size:12px">${index+1}</td>
+    <td><input class="inline-input" data-field="name" placeholder="Tên học sinh *" /></td>
+    <td><input class="inline-input" type="date" data-field="dob" /></td>
+    <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
+    <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
+    <td style="text-align:center"><input type="checkbox" class="inline-check" data-field="discount" /></td>
+    <td><span style="color:var(--muted);font-size:12px">-</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">🗑️</button></td>
+  </tr>`;
+}
+
+function addNewRow(classId) {
+  const tbody = document.getElementById('classStudentBody');
+  const rows = tbody.querySelectorAll('tr');
+  const otherClasses = allClasses.filter(c => c.id !== classId);
+  const newRow = document.createElement('tr');
+  newRow.dataset.studentId = 'new_' + Date.now();
+  newRow.style.cssText = 'border-bottom:1px solid rgba(46,51,72,0.4);background:rgba(240,165,0,0.03)';
+  newRow.innerHTML = `
+    <td style="color:var(--muted);font-size:12px">${rows.length + 1}</td>
+    <td><input class="inline-input" data-field="name" placeholder="Tên học sinh *" /></td>
+    <td><input class="inline-input" type="date" data-field="dob" /></td>
+    <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
+    <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
+    <td style="text-align:center"><input type="checkbox" class="inline-check" data-field="discount" /></td>
+    <td><span style="color:var(--muted);font-size:12px">-</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">🗑️</button></td>
+  `;
+  tbody.appendChild(newRow);
+  newRow.querySelector('input[data-field="name"]').focus();
+}
+
+async function saveAllStudents(classId) {
+  const tbody = document.getElementById('classStudentBody');
+  const rows = tbody.querySelectorAll('tr');
+  let saved = 0, errors = 0;
+
+  // Find class info for schedule_days
+  let scheduleDays, classType;
+  if (classId === 'mamnon') {
+    scheduleDays = ['2','3','4','5','6','7'];
+    classType = 'mamnon';
+  } else {
+    const cls = allClasses.find(c => c.id === classId);
+    scheduleDays = cls?.schedule_days || [];
+    classType = cls?.class_type || 'tienganh';
+  }
+
+  for (const row of rows) {
+    const studentId = row.dataset.studentId;
+    const name = row.querySelector('[data-field="name"]')?.value?.trim();
+    if (!name) continue; // skip empty rows
+
+    const dob = row.querySelector('[data-field="dob"]')?.value || null;
+    const phone = row.querySelector('[data-field="phone"]')?.value?.trim() || null;
+    const parent = row.querySelector('[data-field="parent"]')?.value?.trim() || null;
+    const discount = row.querySelector('[data-field="discount"]')?.checked || false;
+
+    const data = {
+      name, date_of_birth: dob, phone_zalo: phone, parent_name: parent,
+      discount_10: discount, class_type: classType,
+      class_id: classId === 'mamnon' ? null : classId,
+      schedule_days: scheduleDays, active: true
+    };
+
+    try {
+      if (studentId.startsWith('new_')) {
+        await api.post('students', data);
+      } else {
+        await api.patch('students', data, `?id=eq.${studentId}`);
+      }
+      saved++;
+    } catch(e) { errors++; console.error(e); }
+  }
+
+  showToast(`Đã lưu ${saved} học sinh${errors ? ', lỗi: '+errors : ''} ✓`, errors ? 'error' : 'success');
+  await loadStudents();
+  loadStudentsByClass();
+}
+
+async function transferStudent(studentId, newClassId, currentClassId) {
+  if (!newClassId) return;
+  const cls = allClasses.find(c => c.id === newClassId);
+  if (!cls) return;
+  
+  if (!confirm(`Chuyển học sinh sang lớp "${cls.name}"?`)) {
+    // Reset dropdown
+    loadStudentsByClass();
+    return;
+  }
+
+  try {
+    await api.patch('students', {
+      class_id: newClassId,
+      class_type: cls.class_type,
+      class_level: cls.name,
+      schedule_days: cls.schedule_days || []
+    }, `?id=eq.${studentId}`);
+    showToast(`Đã chuyển sang lớp ${cls.name} ✓`, 'success');
+    await loadStudents();
+    loadStudentsByClass();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function deleteStudentRow(studentId, btn) {
+  const row = btn.closest('tr');
+  const name = row.querySelector('[data-field="name"]')?.value || 'học sinh này';
+  if (!confirm(`Xóa "${name}"? Sẽ xóa toàn bộ điểm danh và học phí.`)) return;
+  try {
+    await api.delete('students', `?id=eq.${studentId}`);
+    row.remove();
+    showToast('Đã xóa ✓', 'success');
+    await loadStudents();
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 

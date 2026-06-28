@@ -1514,16 +1514,19 @@ async function markAllAbsent(studentId) {
   if (!s) return;
 
   const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
   showToast('Đang lưu...', 'success');
 
-  for (const date of scheduledDates) {
-    const existing = await api.get('attendance', `?student_id=eq.${studentId}&date=eq.${date}`);
-    if (existing && existing.length > 0) {
-      await api.patch('attendance', { present: false }, `?student_id=eq.${studentId}&date=eq.${date}`);
-    } else {
-      await api.post('attendance', { student_id: studentId, date, present: false });
-    }
-  }
+  // 1. Xóa hết records cũ
+  await api.delete('attendance',
+    `?student_id=eq.${studentId}&date=gte.${month}-01&date=lte.${month}-${String(daysInMonth).padStart(2,'0')}`
+  );
+
+  // 2. Insert tất cả ngày nghỉ 1 lần (batch)
+  const records = scheduledDates.map(date => ({
+    student_id: studentId, date, present: false
+  }));
+  await api.post('attendance', records);
 
   showToast('Đã đánh dấu nghỉ cả tháng ✓', 'success');
   loadAttendance();

@@ -444,29 +444,10 @@
     <!-- CONFIG -->
     <div id="page-config" class="page">
       <div class="page-header">
-        <div class="page-title">⚙️ Cấu hình học phí</div>
-        <button class="btn btn-primary" onclick="saveConfigs()">💾 Lưu thay đổi</button>
+        <div class="page-title">⚙️ Loại lớp & Học phí</div>
+        <button class="btn btn-primary" onclick="openClassTypeModal()">+ Thêm loại lớp</button>
       </div>
-      <div class="config-card">
-        <div class="config-title"><span style="color:var(--mamnon)">🟡</span> Mầm non</div>
-        <div class="config-grid">
-          <div class="config-item"><label>HP cố định/tháng (VND)</label><input type="number" id="cfg_mn_base" value="3500000" /></div>
-          <div class="config-item"><label>Tiền ăn/buổi (VND)</label><input type="number" id="cfg_mn_meal" value="25000" /></div>
-          <div class="config-item"><label>Phí Zumba/tháng (VND)</label><input type="number" id="cfg_mn_zumba" value="200000" /></div>
-        </div>
-      </div>
-      <div class="config-card">
-        <div class="config-title"><span style="color:var(--tienganh)">🔵</span> Tiếng Anh</div>
-        <div class="config-grid">
-          <div class="config-item"><label>HP/buổi (VND)</label><input type="number" id="cfg_ta_per" value="150000" /></div>
-        </div>
-      </div>
-      <div class="config-card">
-        <div class="config-title"><span style="color:var(--toan)">🟢</span> Toán</div>
-        <div class="config-grid">
-          <div class="config-item"><label>HP/buổi (VND)</label><input type="number" id="cfg_toan_per" value="150000" /></div>
-        </div>
-      </div>
+      <div id="classTypeList"><div class="empty-state"><div class="icon">⚙️</div><p>Đang tải...</p></div></div>
     </div>
 
     <!-- SETTINGS -->
@@ -531,10 +512,8 @@
     <div class="form-grid">
       <div class="form-group full"><label>Tên lớp *</label><input type="text" id="c_name" placeholder="VD: English 2-5, Toán Lớp 3" /></div>
       <div class="form-group full"><label>Loại lớp *</label>
-        <select id="c_type" onchange="onClassTypeChange()">
-          <option value="mamnon">Mầm non</option>
-          <option value="tienganh">Tiếng Anh</option>
-          <option value="toan">Toán</option>
+        <select id="c_class_type_id" onchange="onClassTypeChange()">
+          <option value="">-- Chọn loại lớp --</option>
         </select>
       </div>
       <div class="form-group full" id="classDaysGroup">
@@ -611,6 +590,50 @@
   </div>
 </div>
 
+<!-- CLASS TYPE MODAL -->
+<div id="classTypeModal" class="modal-overlay">
+  <div class="modal">
+    <h2 id="classTypeModalTitle">Thêm loại lớp</h2>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Tên loại lớp *</label>
+        <input type="text" id="ct_name" placeholder="VD: Hè, Thứ 7, Tiếng Anh..." />
+      </div>
+      <div class="form-group full">
+        <label>Cách tính học phí *</label>
+        <select id="ct_fee_type" onchange="onFeeTypeChange()">
+          <option value="per_session">Theo buổi (HP/buổi)</option>
+          <option value="fixed">Cố định/tháng</option>
+        </select>
+      </div>
+      <div class="form-group full" id="ct_per_session_group">
+        <label>Học phí/buổi (VND)</label>
+        <input type="number" id="ct_base_fee" placeholder="VD: 150000" />
+      </div>
+      <div class="form-group full" id="ct_fixed_group" style="display:none">
+        <label>Học phí cố định/tháng (VND)</label>
+        <input type="number" id="ct_fixed_fee" placeholder="VD: 3500000" />
+      </div>
+      <div class="form-group full">
+        <label>Tiền ăn/buổi (VND) <span style="color:var(--muted);font-size:11px">— để 0 nếu không có</span></label>
+        <input type="number" id="ct_meal_fee" placeholder="0" value="0" />
+      </div>
+      <div class="form-group">
+        <label>Tên phụ phí <span style="color:var(--muted);font-size:11px">— để trống nếu không có</span></label>
+        <input type="text" id="ct_extra_name" placeholder="VD: Zumba, Giáo trình..." />
+      </div>
+      <div class="form-group">
+        <label>Số tiền phụ phí/tháng (VND)</label>
+        <input type="number" id="ct_extra_fee" placeholder="0" value="0" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-secondary" onclick="closeClassTypeModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveClassType()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
@@ -670,6 +693,7 @@ const api = {
 // STATE
 // ============================================
 let allClasses = [];
+let allClassTypes = [];
 let allStudents = [];
 let currentFilter = 'all';
 let currentAttFilter = 'all';
@@ -681,15 +705,19 @@ function populateClassDropdown(selectId, currentVal) {
   if (!sel) return;
   sel.innerHTML = '<option value="all">Tất cả lớp</option>';
   
-  // Mầm non - always show as single option
+  // Group classes by class_type name
+  const typeGroups = {};
+  allClasses.forEach(c => {
+    const ct = allClassTypes.find(x => x.id === c.class_type_id);
+    const groupName = ct ? ct.name : (c.class_type === 'mamnon' ? 'Mầm non' : c.class_type === 'toan' ? 'Toán' : 'Tiếng Anh');
+    if (!typeGroups[groupName]) typeGroups[groupName] = [];
+    typeGroups[groupName].push(c);
+  });
+
+  // For studentClassFilter - add mamnon option if no mamnon class exists
   if (selectId === 'studentClassFilter') {
-    const opt = document.createElement('option');
-    opt.value = 'mamnon';
-    opt.textContent = '🟡 Mầm non';
-    sel.appendChild(opt);
-  } else {
-    const mnStudents = allStudents.filter(s => s.class_type === 'mamnon');
-    if (mnStudents.length) {
+    const hasMamnonClass = allClasses.some(c => c.class_type === 'mamnon');
+    if (!hasMamnonClass) {
       const opt = document.createElement('option');
       opt.value = 'mamnon';
       opt.textContent = '🟡 Mầm non';
@@ -697,23 +725,24 @@ function populateClassDropdown(selectId, currentVal) {
     }
   }
 
-  // Tiếng Anh & Toán - show by class
-  const types = [
-    { key: 'tienganh', label: '🔵 Tiếng Anh' },
-    { key: 'toan', label: '🟢 Toán' }
-  ];
-  types.forEach(t => {
-    const classes = allClasses.filter(c => c.class_type === t.key && c.active);
+  Object.entries(typeGroups).forEach(([groupName, classes]) => {
     if (!classes.length) return;
-    const grp = document.createElement('optgroup');
-    grp.label = t.label;
-    classes.forEach(c => {
+    if (classes.length === 1 && selectId === 'studentClassFilter') {
       const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.name;
-      grp.appendChild(opt);
-    });
-    sel.appendChild(grp);
+      opt.value = classes[0].id;
+      opt.textContent = classes[0].name;
+      sel.appendChild(opt);
+    } else {
+      const grp = document.createElement('optgroup');
+      grp.label = groupName;
+      classes.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    }
   });
   if (currentVal) sel.value = currentVal;
 }
@@ -790,6 +819,7 @@ async function initApp() {
   document.getElementById('zaloMonth').value = m;
   document.getElementById('exportMonth').value = m;
   await loadFeeConfigs();
+  await loadClassTypes();
   await loadClasses();
   await loadStudents();
   loadDashboard();
@@ -807,6 +837,7 @@ function showPage(name) {
   if (name === 'students') { populateClassDropdown('studentClassFilter', 'all'); loadStudentsByClass(); }
   if (name === 'attendance') { populateClassDropdown('attClassFilter', 'all'); loadAttendance(); }
   if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); loadFees(); }
+  if (name === 'config') { loadClassTypes(); }
   if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); loadZaloList(); }
   if (name === 'export') { populateClassDropdown('exportClassFilter', 'all'); }
   if (name === 'fees') loadFees();
@@ -849,6 +880,137 @@ async function saveConfigs() {
       }
     }
     showToast('Đã lưu cấu hình học phí ✓', 'success');
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// CLASS TYPES
+// ============================================
+let editingClassTypeId = null;
+
+async function loadClassTypes() {
+  try {
+    allClassTypes = await api.get('class_types', '?active=eq.true&order=name.asc');
+    renderClassTypes();
+    // Update class type dropdown in class modal
+    updateClassTypeDropdown();
+  } catch(e) { console.error(e); }
+}
+
+function renderClassTypes() {
+  const el = document.getElementById('classTypeList');
+  if (!el) return;
+  if (!allClassTypes.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">⚙️</div><p>Chưa có loại lớp nào</p></div>`;
+    return;
+  }
+  el.innerHTML = allClassTypes.map(ct => `
+    <div class="config-card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700">${ct.name}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="openClassTypeModal('${ct.id}')">✏️ Sửa</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteClassType('${ct.id}','${ct.name}')">🗑️</button>
+        </div>
+      </div>
+      <div class="config-grid">
+        ${ct.fee_type === 'fixed' ? `
+          <div class="config-item"><label>HP cố định/tháng</label><div style="font-size:14px;color:var(--accent)">${fmt(ct.base_fee)} đ</div></div>
+          ${ct.meal_fee_per_session ? `<div class="config-item"><label>Tiền ăn/buổi</label><div style="font-size:14px">${fmt(ct.meal_fee_per_session)} đ</div></div>` : ''}
+        ` : `
+          <div class="config-item"><label>HP/buổi</label><div style="font-size:14px;color:var(--accent)">${fmt(ct.base_fee)} đ</div></div>
+          ${ct.meal_fee_per_session ? `<div class="config-item"><label>Tiền ăn/buổi</label><div style="font-size:14px">${fmt(ct.meal_fee_per_session)} đ</div></div>` : ''}
+        `}
+        ${ct.extra_fee && ct.extra_fee_name ? `<div class="config-item"><label>${ct.extra_fee_name}/tháng</label><div style="font-size:14px">${fmt(ct.extra_fee)} đ</div></div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateClassTypeDropdown() {
+  const sel = document.getElementById('c_class_type_id');
+  if (!sel) return;
+  const saved = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn loại lớp --</option>';
+  allClassTypes.forEach(ct => {
+    const opt = document.createElement('option');
+    opt.value = ct.id;
+    opt.textContent = ct.name;
+    sel.appendChild(opt);
+  });
+  if (saved) sel.value = saved;
+}
+
+function openClassTypeModal(id = null) {
+  editingClassTypeId = id;
+  document.getElementById('classTypeModalTitle').textContent = id ? 'Sửa loại lớp' : 'Thêm loại lớp';
+  if (id) {
+    const ct = allClassTypes.find(x => x.id === id);
+    if (!ct) return;
+    document.getElementById('ct_name').value = ct.name;
+    document.getElementById('ct_fee_type').value = ct.fee_type;
+    document.getElementById('ct_base_fee').value = ct.base_fee || 0;
+    document.getElementById('ct_fixed_fee').value = ct.base_fee || 0;
+    document.getElementById('ct_meal_fee').value = ct.meal_fee_per_session || 0;
+    document.getElementById('ct_extra_name').value = ct.extra_fee_name || '';
+    document.getElementById('ct_extra_fee').value = ct.extra_fee || 0;
+  } else {
+    document.getElementById('ct_name').value = '';
+    document.getElementById('ct_fee_type').value = 'per_session';
+    document.getElementById('ct_base_fee').value = '';
+    document.getElementById('ct_fixed_fee').value = '';
+    document.getElementById('ct_meal_fee').value = '0';
+    document.getElementById('ct_extra_name').value = '';
+    document.getElementById('ct_extra_fee').value = '0';
+  }
+  onFeeTypeChange();
+  document.getElementById('classTypeModal').classList.add('show');
+}
+
+function closeClassTypeModal() {
+  document.getElementById('classTypeModal').classList.remove('show');
+  editingClassTypeId = null;
+}
+
+function onFeeTypeChange() {
+  const type = document.getElementById('ct_fee_type').value;
+  document.getElementById('ct_per_session_group').style.display = type === 'per_session' ? 'flex' : 'none';
+  document.getElementById('ct_fixed_group').style.display = type === 'fixed' ? 'flex' : 'none';
+}
+
+async function saveClassType() {
+  const name = document.getElementById('ct_name').value.trim();
+  if (!name) return showToast('Vui lòng nhập tên loại lớp', 'error');
+  const feeType = document.getElementById('ct_fee_type').value;
+  const baseFee = feeType === 'fixed'
+    ? +document.getElementById('ct_fixed_fee').value || 0
+    : +document.getElementById('ct_base_fee').value || 0;
+  const data = {
+    name, fee_type: feeType, base_fee: baseFee,
+    meal_fee_per_session: +document.getElementById('ct_meal_fee').value || 0,
+    extra_fee_name: document.getElementById('ct_extra_name').value.trim() || null,
+    extra_fee: +document.getElementById('ct_extra_fee').value || 0,
+    active: true
+  };
+  try {
+    if (editingClassTypeId) {
+      await api.patch('class_types', data, `?id=eq.${editingClassTypeId}`);
+      showToast('Đã cập nhật ✓', 'success');
+    } else {
+      await api.post('class_types', data);
+      showToast('Đã thêm loại lớp ✓', 'success');
+    }
+    closeClassTypeModal();
+    await loadClassTypes();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function deleteClassType(id, name) {
+  if (!confirm(`Xóa loại lớp "${name}"?`)) return;
+  try {
+    await api.delete('class_types', `?id=eq.${id}`);
+    showToast('Đã xóa ✓', 'success');
+    await loadClassTypes();
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
 }
 
@@ -916,13 +1078,13 @@ function openClassModal(id = null) {
     const c = allClasses.find(x => x.id === id);
     if (!c) return;
     document.getElementById('c_name').value = c.name;
-    document.getElementById('c_type').value = c.class_type;
+    document.getElementById('c_class_type_id').value = c.class_type_id || '';
     (c.schedule_days || []).forEach(d => {
       document.querySelector(`#classDaysPicker .day-btn[data-day="${d}"]`)?.classList.add('selected');
     });
   } else {
     document.getElementById('c_name').value = '';
-    document.getElementById('c_type').value = 'tienganh';
+    document.getElementById('c_class_type_id').value = '';
   }
   onClassTypeChange();
   document.getElementById('classModal').classList.add('show');
@@ -936,8 +1098,9 @@ function closeClassModal() {
 function toggleClassDay(btn) { btn.classList.toggle('selected'); }
 
 function onClassTypeChange() {
-  const type = document.getElementById('c_type').value;
-  const isMamnon = type === 'mamnon';
+  const ctId = document.getElementById('c_class_type_id').value;
+  const ct = allClassTypes.find(x => x.id === ctId);
+  const isMamnon = ct?.fee_type === 'fixed';
   document.getElementById('classDaysPicker').style.display = isMamnon ? 'none' : 'flex';
   document.getElementById('classMamnonNote').style.display = isMamnon ? 'block' : 'none';
 }
@@ -945,11 +1108,17 @@ function onClassTypeChange() {
 async function saveClass() {
   const name = document.getElementById('c_name').value.trim();
   if (!name) return showToast('Vui lòng nhập tên lớp', 'error');
-  const classType = document.getElementById('c_type').value;
+  const ctId = document.getElementById('c_class_type_id').value;
+  if (!ctId) return showToast('Vui lòng chọn loại lớp', 'error');
+  const ct = allClassTypes.find(x => x.id === ctId);
+  const isMamnon = ct?.fee_type === 'fixed';
   let days = [...document.querySelectorAll('#classDaysPicker .day-btn.selected')].map(b => b.dataset.day);
-  // Auto T2-T7 for mamnon
-  if (classType === 'mamnon') days = ['2','3','4','5','6','7'];
-  const data = { name, class_type: classType, schedule_days: days, active: true };
+  if (isMamnon) days = ['2','3','4','5','6','7'];
+  // Map class_type for backward compat
+  let classType = 'tienganh';
+  if (ct?.name?.toLowerCase().includes('mầm non') || isMamnon) classType = 'mamnon';
+  else if (ct?.name?.toLowerCase().includes('toán')) classType = 'toan';
+  const data = { name, class_type: classType, class_type_id: ctId, schedule_days: days, active: true };
   try {
     if (editingClassId) {
       await api.patch('classes', data, `?id=eq.${editingClassId}`);
@@ -1595,15 +1764,33 @@ async function calcAllFees() {
         return rec ? rec.present : true;
       });
       const sessions = presentDates.length;
+      // Get class type config
+      const cls = allClasses.find(c => c.id === s.class_id);
+      const ct = cls?.class_type_id 
+        ? allClassTypes.find(x => x.id === cls.class_type_id)
+        : allClassTypes.find(x => x.name.toLowerCase().includes(s.class_type === 'mamnon' ? 'mầm' : s.class_type === 'toan' ? 'toán' : 'anh'));
       const cfg = feeConfigs[s.class_type] || {};
       let baseFee = 0, mealFee = 0, zumbaFee = 0;
-      if (s.class_type === 'mamnon') {
+      if (ct) {
+        if (ct.fee_type === 'fixed') {
+          // Fixed monthly (mamnon style)
+          if (sessions > 0) {
+            baseFee = ct.base_fee || 0;
+            mealFee = sessions * (ct.meal_fee_per_session || 0);
+            zumbaFee = ct.extra_fee || 0;
+          }
+        } else {
+          // Per session
+          baseFee = sessions * (ct.base_fee || 0);
+          mealFee = sessions * (ct.meal_fee_per_session || 0);
+          zumbaFee = ct.extra_fee || 0;
+        }
+      } else if (s.class_type === 'mamnon') {
         if (sessions > 0) {
           baseFee = cfg.base_fee || 3500000;
           mealFee = sessions * (cfg.meal_fee_per_session || 25000);
           zumbaFee = cfg.zumba_fee || 200000;
         }
-        // sessions = 0 → nghỉ cả tháng → không thu gì
       } else {
         baseFee = sessions * (cfg.fee_per_session || 150000);
       }

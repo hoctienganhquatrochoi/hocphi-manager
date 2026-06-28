@@ -1214,7 +1214,7 @@ function renderClassStudentTable(cls, students, classId) {
               <th>Ngày sinh</th>
               <th>SĐT Zalo</th>
               <th>Phụ huynh</th>
-              <th style="text-align:center">Giảm 10%</th>
+              <th style="text-align:center">Giảm %</th>
               <th>Chuyển lớp</th>
               <th>Xóa</th>
             </tr>
@@ -1237,7 +1237,7 @@ function buildStudentRow(s, i, otherClasses, currentClassId) {
     <td><input class="inline-input" type="date" value="${s.date_of_birth||''}" data-field="dob" /></td>
     <td><input class="inline-input" value="${s.phone_zalo||''}" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" value="${s.parent_name||''}" data-field="parent" placeholder="Tên PH" /></td>
-    <td style="text-align:center"><input type="checkbox" class="inline-check" ${s.discount_10?'checked':''} data-field="discount" /></td>
+    <td style="text-align:center"><input type="number" class="inline-input" value="${s.discount_percent||0}" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
     <td>
       <select class="inline-input" data-field="transfer" onchange="transferStudent('${s.id}',this.value,'${currentClassId}')" style="min-width:100px">
         <option value="">-- Giữ nguyên --</option>
@@ -1255,7 +1255,7 @@ function buildEmptyRow(index, otherClasses, currentClassId) {
     <td><input class="inline-input" type="date" data-field="dob" /></td>
     <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
-    <td style="text-align:center"><input type="checkbox" class="inline-check" data-field="discount" /></td>
+    <td style="text-align:center"><input type="number" class="inline-input" value="0" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
     <td><span style="color:var(--muted);font-size:12px">-</span></td>
     <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">🗑️</button></td>
   </tr>`;
@@ -1274,7 +1274,7 @@ function addNewRow(classId) {
     <td><input class="inline-input" type="date" data-field="dob" /></td>
     <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
-    <td style="text-align:center"><input type="checkbox" class="inline-check" data-field="discount" /></td>
+    <td style="text-align:center"><input type="number" class="inline-input" value="0" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
     <td><span style="color:var(--muted);font-size:12px">-</span></td>
     <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">🗑️</button></td>
   `;
@@ -1306,11 +1306,12 @@ async function saveAllStudents(classId) {
     const dob = row.querySelector('[data-field="dob"]')?.value || null;
     const phone = row.querySelector('[data-field="phone"]')?.value?.trim() || null;
     const parent = row.querySelector('[data-field="parent"]')?.value?.trim() || null;
-    const discount = row.querySelector('[data-field="discount"]')?.checked || false;
+    const discountPercent = parseInt(row.querySelector('[data-field="discount"]')?.value) || 0;
 
     const data = {
       name, date_of_birth: dob, phone_zalo: phone, parent_name: parent,
-      discount_10: discount, class_type: classType,
+      discount_10: discountPercent >= 10,
+      discount_percent: discountPercent, class_type: classType,
       class_id: classId === 'mamnon' ? null : classId,
       schedule_days: scheduleDays, active: true
     };
@@ -1396,7 +1397,7 @@ function renderStudents(filter = null, search = '') {
       <td><span class="badge badge-${s.class_type}">${typeLabel(s.class_type)}${s.class_level ? ' · ' + s.class_level : ''}</span></td>
       <td style="color:var(--muted);font-size:12px">${formatDays(s.schedule_days)}</td>
       <td>${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" style="color:var(--blue);font-size:12px">${s.phone_zalo}</a>` : '-'}</td>
-      <td>${s.discount_10 ? '<span class="badge badge-discount">-10%</span>' : '-'}</td>
+      <td>${s.discount_10 ? '<span class="badge badge-discount">-${s.discount_percent||10}%</span>' : '-'}</td>
       <td>
         <div class="actions-row">
           <button class="btn btn-secondary btn-sm" onclick="openStudentModal('${s.id}')">✏️</button>
@@ -1805,7 +1806,8 @@ async function calcAllFees() {
         baseFee = sessions * (cfg.fee_per_session || 150000);
       }
       const subtotal = baseFee + mealFee + zumbaFee;
-      const discount = s.discount_10 ? Math.round(subtotal * 0.1) : 0;
+      const discPct = s.discount_percent || (s.discount_10 ? 10 : 0);
+      const discount = discPct > 0 ? Math.round(subtotal * discPct / 100) : 0;
       const total = subtotal - discount;
       const existingFee = await api.get('monthly_fees', `?student_id=eq.${s.id}&month=eq.${month}`);
       const feeData = { student_id: s.id, month, sessions_present: sessions, base_fee: baseFee, meal_fee: mealFee, zumba_fee: zumbaFee, extra_fee: 0, discount_amount: discount, total, zalo_sent: false };
@@ -1947,7 +1949,10 @@ async function buildZaloMsg(s, f, month, year) {
       if (absentDates.length > 0) {
         lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ngày (${absentDates.join(', ')})`);
       }
-      if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
+      if (f.discount_amount) {
+      const discPct = s.discount_percent || (s.discount_10 ? 10 : 0);
+      lines.push(`Giảm ${discPct}%: -${fmt(f.discount_amount)}`);
+    }
       lines.push('');
       lines.push(`Tổng: ${fmt(f.total)} đ`);
     }
@@ -1963,7 +1968,10 @@ async function buildZaloMsg(s, f, month, year) {
       if (absentDates.length > 0) {
         lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} buổi (${absentDates.join(', ')})`);
       }
-      if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
+      if (f.discount_amount) {
+      const discPct = s.discount_percent || (s.discount_10 ? 10 : 0);
+      lines.push(`Giảm ${discPct}%: -${fmt(f.discount_amount)}`);
+    }
       lines.push('');
       lines.push(`Tổng: ${fmt(f.total)} đ`);
     }

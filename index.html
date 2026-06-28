@@ -1407,6 +1407,7 @@ async function loadAttendance() {
               <span>Tổng: ${scheduledDates.length} buổi</span>
             </div>
             <button class="btn btn-danger btn-sm" onclick="markAllAbsent('${s.id}')">❌ Nghỉ cả tháng</button>
+            <button class="btn btn-green btn-sm" onclick="resetAllPresent('${s.id}')">✅ Reset có mặt</button>
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px" id="att_${s.id}">
@@ -1479,6 +1480,28 @@ async function toggleAtt(studentId, date, btn) {
     if (countEl) countEl.textContent = presentCount;
     showToast(newPresent ? '✓ Có mặt' : '✗ Nghỉ', newPresent ? 'success' : 'error');
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function resetAllPresent(studentId) {
+  const month = document.getElementById('attMonth').value;
+  if (!month) return showToast('Chọn tháng trước', 'error');
+  if (!confirm('Xóa hết nghỉ, reset về có mặt cả tháng?')) return;
+
+  const [yr, mo] = month.split('-').map(Number);
+  const s = allStudents.find(x => x.id === studentId);
+  if (!s) return;
+
+  const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+  showToast('Đang reset...', 'success');
+
+  // Delete all attendance records for this student this month
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  await api.delete('attendance', 
+    `?student_id=eq.${studentId}&date=gte.${month}-01&date=lte.${month}-${String(daysInMonth).padStart(2,'0')}`
+  );
+
+  showToast('Đã reset về có mặt cả tháng ✓', 'success');
+  loadAttendance();
 }
 
 async function markAllAbsent(studentId) {
@@ -1693,7 +1716,9 @@ async function buildZaloMsg(s, f, month, year) {
   const mo = parseInt(month);
   const yr = parseInt(year);
   
-  // Get absent dates
+  // Get scheduled dates and absent dates
+  const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+  const totalSessions = scheduledDates.length;
   const daysInMonth = new Date(yr, mo, 0).getDate();
   const startDate = `${year}-${month}-01`;
   const endDate = `${year}-${month}-${String(daysInMonth).padStart(2,'0')}`;
@@ -1702,33 +1727,47 @@ async function buildZaloMsg(s, f, month, year) {
     const d = new Date(r.date + 'T00:00:00');
     return `${d.getDate()}/${mo}`;
   });
-
+  
+  const absentAll = absentDates.length >= totalSessions && totalSessions > 0;
   let lines = [];
+
   if (s.class_type === 'mamnon') {
-    // Mầm non: HP tháng sau, tiền ăn tháng này
     const nextMonth = mo === 12 ? 1 : mo + 1;
     lines.push(`Cô gửi HP ${s.name} Tháng ${nextMonth} ạ! ⭐`);
     lines.push('');
-    lines.push(`HP Tháng ${nextMonth}: ${fmt(f.base_fee)}`);
-    lines.push(`Tiền ăn: ${fmt(f.meal_fee)}`);
-    if (f.zumba_fee) lines.push(`Zumba: ${fmt(f.zumba_fee)}`);
-    if (absentDates.length > 0) {
-      const unit = absentDates.length === 1 ? 'ngày' : 'ngày';
-      lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ${unit} (${absentDates.join(', ')})`);
+    if (absentAll) {
+      // Nghỉ cả tháng - không thu gì
+      lines.push(`Nghỉ học cả tháng ${mo}`);
+      lines.push('');
+      lines.push(`Tổng: 0 đ`);
+    } else {
+      lines.push(`HP Tháng ${nextMonth}: ${fmt(f.base_fee)}`);
+      lines.push(`Tiền ăn: ${fmt(f.meal_fee)}`);
+      if (f.zumba_fee) lines.push(`Zumba: ${fmt(f.zumba_fee)}`);
+      if (absentDates.length > 0) {
+        lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ngày (${absentDates.join(', ')})`);
+      }
+      if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
+      lines.push('');
+      lines.push(`Tổng: ${fmt(f.total)} đ`);
     }
   } else {
-    // TA/Toán: HP tháng này
     lines.push(`Cô gửi HP ${s.name} Tháng ${mo} ạ! ⭐`);
     lines.push('');
-    lines.push(`HP Tháng ${mo} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
-    if (absentDates.length > 0) {
-      const unit = absentDates.length === 1 ? 'buổi' : 'buổi';
-      lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ${unit} (${absentDates.join(', ')})`);
+    if (absentAll) {
+      lines.push(`Nghỉ học cả tháng ${mo}`);
+      lines.push('');
+      lines.push(`Tổng: 0 đ`);
+    } else {
+      lines.push(`HP Tháng ${mo} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
+      if (absentDates.length > 0) {
+        lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} buổi (${absentDates.join(', ')})`);
+      }
+      if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
+      lines.push('');
+      lines.push(`Tổng: ${fmt(f.total)} đ`);
     }
   }
-  if (f.discount_amount) lines.push(`Giảm 10%: -${fmt(f.discount_amount)}`);
-  lines.push('');
-  lines.push(`Tổng: ${fmt(f.total)} đ`);
   lines.push('');
   lines.push('Cảm ơn phụ huynh!');
   return lines.join('\n');

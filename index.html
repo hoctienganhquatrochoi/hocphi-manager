@@ -700,6 +700,7 @@ let feeConfigs = {};
 function populateClassDropdown(selectId, currentVal) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
+  const savedVal = currentVal || sel.value || 'all';
   sel.innerHTML = '<option value="all">Tất cả lớp</option>';
   
   // Group classes by class_type name
@@ -741,7 +742,7 @@ function populateClassDropdown(selectId, currentVal) {
       sel.appendChild(grp);
     }
   });
-  if (currentVal) sel.value = currentVal;
+  sel.value = savedVal;
 }
 
 // ============================================
@@ -1490,7 +1491,7 @@ async function loadClassesDropdown(type) {
     opt.textContent = c.name;
     sel.appendChild(opt);
   });
-  if (currentVal) sel.value = currentVal;
+  sel.value = savedVal;
 }
 
 function closeStudentModal() {
@@ -1756,6 +1757,8 @@ function getScheduledDates(days, year, month) {
 async function loadFees() {
   const month = document.getElementById('feeMonth').value;
   if (!month) return;
+  const savedFeeFilter = document.getElementById('feeClassFilter')?.value || 'all';
+  populateClassDropdown('feeClassFilter', savedFeeFilter);
   const classFilter = document.getElementById('feeClassFilter')?.value || 'all';
   try {
     const fees = await api.get('monthly_fees', `?month=eq.${month}&order=student_id`);
@@ -1875,10 +1878,10 @@ function renderFeeTable(fees) {
 async function loadZaloList() {
   const month = document.getElementById('zaloMonth').value;
   if (!month) return;
+  // Save filter value BEFORE populating (populate resets value)
+  const savedFilter = document.getElementById('zaloClassFilter')?.value || 'all';
+  populateClassDropdown('zaloClassFilter', savedFilter);
   const classFilter = document.getElementById('zaloClassFilter')?.value || 'all';
-  
-  // Populate class dropdown
-  populateClassDropdown('zaloClassFilter', 'all');
 
   const fees = await api.get('monthly_fees', `?month=eq.${month}`);
   if (!fees.length) {

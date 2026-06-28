@@ -1896,8 +1896,11 @@ async function loadZaloList() {
     if (!s) continue;
     // Filter by class
     if (classFilter !== 'all') {
-      if (classFilter === 'mamnon' && s.class_type !== 'mamnon') continue;
-      else if (classFilter !== 'mamnon' && s.class_id !== classFilter && s.class_type !== classFilter) continue;
+      if (classFilter === 'mamnon') {
+        if (s.class_type !== 'mamnon') continue;
+      } else {
+        if (s.class_id !== classFilter) continue;
+      }
     }
     // Group by class_id, fallback to class_type
     const cls = allClasses.find(c => c.id === s.class_id);

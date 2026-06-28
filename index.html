@@ -1182,7 +1182,13 @@ async function loadStudentsByClass() {
   if (isMamnon) {
     students = allStudents.filter(s => s.class_type === 'mamnon');
   } else {
-    students = allStudents.filter(s => s.class_id === classId);
+    // Also include mamnon students if class is mamnon type
+    const cls = allClasses.find(c => c.id === classId);
+    if (cls?.class_type === 'mamnon') {
+      students = allStudents.filter(s => s.class_type === 'mamnon' && (s.class_id === classId || !s.class_id));
+    } else {
+      students = allStudents.filter(s => s.class_id === classId);
+    }
   }
   currentClassStudents = [...students];
 
@@ -1548,9 +1554,12 @@ async function loadAttendance() {
   const month = document.getElementById('attMonth').value;
   if (!month) return;
   const classFilter = document.getElementById('attClassFilter')?.value || 'all';
+  // Find class info to determine filter
+  const filterClass = allClasses.find(c => c.id === classFilter);
   const students = allStudents.filter(s => {
     if (classFilter === 'all') return true;
     if (classFilter === 'mamnon') return s.class_type === 'mamnon';
+    if (filterClass?.class_type === 'mamnon') return s.class_type === 'mamnon' && (s.class_id === classFilter || !s.class_id);
     return s.class_id === classFilter;
   });
   if (!students.length) {
@@ -1748,11 +1757,13 @@ async function loadFees() {
       document.getElementById('feeTotalRow').style.display = 'none';
       return;
     }
+    const filterCls = allClasses.find(c => c.id === classFilter);
     const filtered = fees.filter(f => {
       if (classFilter === 'all') return true;
       const s = allStudents.find(x => x.id === f.student_id);
       if (!s) return false;
       if (classFilter === 'mamnon') return s.class_type === 'mamnon';
+      if (filterCls?.class_type === 'mamnon') return s.class_type === 'mamnon' && (s.class_id === classFilter || !s.class_id);
       return s.class_id === classFilter;
     });
     renderFeeTable(filtered);

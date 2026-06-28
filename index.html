@@ -1395,15 +1395,18 @@ async function loadAttendance() {
     const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
     html += `
       <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <div>
             <strong>${s.name}</strong>
             <span class="badge badge-${s.class_type}" style="margin-left:8px">${typeLabel(s.class_type)}</span>
           </div>
-          <div style="font-size:13px;color:var(--muted)">
-            Lịch: ${formatDays(s.schedule_days)} &nbsp;|&nbsp;
-            <span style="color:var(--green)">Có mặt: <strong id="present_${s.id}">-</strong></span> /
-            <span>Tổng: ${scheduledDates.length} buổi</span>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-size:13px;color:var(--muted)">
+              Lịch: ${formatDays(s.schedule_days)} &nbsp;|&nbsp;
+              <span style="color:var(--green)">Có mặt: <strong id="present_${s.id}">-</strong></span> /
+              <span>Tổng: ${scheduledDates.length} buổi</span>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="markAllAbsent('${s.id}')">❌ Nghỉ cả tháng</button>
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px" id="att_${s.id}">
@@ -1476,6 +1479,31 @@ async function toggleAtt(studentId, date, btn) {
     if (countEl) countEl.textContent = presentCount;
     showToast(newPresent ? '✓ Có mặt' : '✗ Nghỉ', newPresent ? 'success' : 'error');
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function markAllAbsent(studentId) {
+  const month = document.getElementById('attMonth').value;
+  if (!month) return showToast('Chọn tháng trước', 'error');
+  if (!confirm('Đánh dấu nghỉ cả tháng cho học sinh này?')) return;
+
+  const [yr, mo] = month.split('-').map(Number);
+  const s = allStudents.find(x => x.id === studentId);
+  if (!s) return;
+
+  const scheduledDates = getScheduledDates(s.schedule_days || [], yr, mo);
+  showToast('Đang lưu...', 'success');
+
+  for (const date of scheduledDates) {
+    const existing = await api.get('attendance', `?student_id=eq.${studentId}&date=eq.${date}`);
+    if (existing && existing.length > 0) {
+      await api.patch('attendance', { present: false }, `?student_id=eq.${studentId}&date=eq.${date}`);
+    } else {
+      await api.post('attendance', { student_id: studentId, date, present: false });
+    }
+  }
+
+  showToast('Đã đánh dấu nghỉ cả tháng ✓', 'success');
+  loadAttendance();
 }
 
 function filterAttType(type, el) {

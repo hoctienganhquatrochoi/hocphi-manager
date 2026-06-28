@@ -1894,9 +1894,15 @@ async function loadZaloList() {
   for (const f of fees) {
     const s = studentMap[f.student_id];
     if (!s) continue;
-    if (classFilter !== 'all' && s.class_id !== classFilter && s.class_type !== classFilter) continue;
+    // Filter by class
+    if (classFilter !== 'all') {
+      if (classFilter === 'mamnon' && s.class_type !== 'mamnon') continue;
+      else if (classFilter !== 'mamnon' && s.class_id !== classFilter && s.class_type !== classFilter) continue;
+    }
+    // Group by class_id, fallback to class_type
+    const cls = allClasses.find(c => c.id === s.class_id);
     const groupKey = s.class_id || s.class_type;
-    const groupName = s.class_id ? (allClasses.find(c=>c.id===s.class_id)?.name || typeLabel(s.class_type)) : typeLabel(s.class_type);
+    const groupName = cls ? cls.name : typeLabel(s.class_type);
     if (!grouped[groupKey]) grouped[groupKey] = { name: groupName, type: s.class_type, items: [] };
     grouped[groupKey].items.push({ f, s });
   }

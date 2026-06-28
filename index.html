@@ -1294,14 +1294,20 @@ async function saveAllStudents(classId) {
   let saved = 0, errors = 0;
 
   // Find class info for schedule_days
-  let scheduleDays, classType;
+  let scheduleDays, classType, classTypeId;
   if (classId === 'mamnon') {
     scheduleDays = ['2','3','4','5','6','7'];
     classType = 'mamnon';
+    classTypeId = null;
   } else {
     const cls = allClasses.find(c => c.id === classId);
     scheduleDays = cls?.schedule_days || [];
     classType = cls?.class_type || 'tienganh';
+    classTypeId = cls?.class_type_id || null;
+    // If mamnon class type, auto set schedule
+    if (classType === 'mamnon' && !scheduleDays.length) {
+      scheduleDays = ['2','3','4','5','6','7'];
+    }
   }
 
   for (const row of rows) {
@@ -1319,6 +1325,7 @@ async function saveAllStudents(classId) {
       discount_10: discountPercent >= 10,
       discount_percent: discountPercent, class_type: classType,
       class_id: classId === 'mamnon' ? null : classId,
+      class_type_id: classTypeId,
       schedule_days: scheduleDays, active: true
     };
 
@@ -1788,24 +1795,27 @@ async function calcAllFees() {
       const sessions = presentDates.length;
       // Get class type config
       const cls = allClasses.find(c => c.id === s.class_id);
-      const ct = cls?.class_type_id 
-        ? allClassTypes.find(x => x.id === cls.class_type_id)
-        : allClassTypes.find(x => x.name.toLowerCase().includes(s.class_type === 'mamnon' ? 'mầm' : s.class_type === 'toan' ? 'toán' : 'anh'));
+      const ctId = s.class_type_id || cls?.class_type_id;
+      let ct = ctId ? allClassTypes.find(x => x.id === ctId) : null;
+      // Fallback: find by name matching
+      if (!ct) {
+        if (s.class_type === 'mamnon') ct = allClassTypes.find(x => x.fee_type === 'fixed' || x.name.toLowerCase().includes('mầm'));
+        else if (s.class_type === 'toan') ct = allClassTypes.find(x => x.name.toLowerCase().includes('toán'));
+        else ct = allClassTypes.find(x => x.name.toLowerCase().includes('anh') || x.name.toLowerCase().includes('english'));
+      }
       const cfg = feeConfigs[s.class_type] || {};
       let baseFee = 0, mealFee = 0, zumbaFee = 0;
       if (ct) {
         if (ct.fee_type === 'fixed') {
-          // Fixed monthly (mamnon style)
           if (sessions > 0) {
             baseFee = ct.base_fee || 0;
             mealFee = sessions * (ct.meal_fee_per_session || 0);
             zumbaFee = ct.extra_fee || 0;
           }
         } else {
-          // Per session
           baseFee = sessions * (ct.base_fee || 0);
           mealFee = sessions * (ct.meal_fee_per_session || 0);
-          zumbaFee = ct.extra_fee || 0;
+          if (ct.extra_fee) zumbaFee = ct.extra_fee;
         }
       } else if (s.class_type === 'mamnon') {
         if (sessions > 0) {

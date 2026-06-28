@@ -336,6 +336,7 @@
       </div>
       <div class="tabs">
         <button class="tab active" onclick="filterClassType('all',this)">Tất cả</button>
+        <button class="tab" onclick="filterClassType('mamnon',this)">Mầm non</button>
         <button class="tab" onclick="filterClassType('tienganh',this)">Tiếng Anh</button>
         <button class="tab" onclick="filterClassType('toan',this)">Toán</button>
       </div>
@@ -530,14 +531,17 @@
     <div class="form-grid">
       <div class="form-group full"><label>Tên lớp *</label><input type="text" id="c_name" placeholder="VD: English 2-5, Toán Lớp 3" /></div>
       <div class="form-group full"><label>Loại lớp *</label>
-        <select id="c_type">
+        <select id="c_type" onchange="onClassTypeChange()">
           <option value="mamnon">Mầm non</option>
           <option value="tienganh">Tiếng Anh</option>
           <option value="toan">Toán</option>
         </select>
       </div>
-      <div class="form-group full">
+      <div class="form-group full" id="classDaysGroup">
         <label>Lịch học trong tuần</label>
+        <div id="classMamnonNote" style="display:none;background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.3);border-radius:8px;padding:10px;font-size:13px;color:var(--accent)">
+          📅 Mầm non học cố định <strong>Thứ 2 – Thứ 7</strong>
+        </div>
         <div class="days-picker" id="classDaysPicker">
           <button type="button" class="day-btn" data-day="2" onclick="toggleClassDay(this)">T2</button>
           <button type="button" class="day-btn" data-day="3" onclick="toggleClassDay(this)">T3</button>
@@ -920,6 +924,7 @@ function openClassModal(id = null) {
     document.getElementById('c_name').value = '';
     document.getElementById('c_type').value = 'tienganh';
   }
+  onClassTypeChange();
   document.getElementById('classModal').classList.add('show');
 }
 
@@ -930,11 +935,21 @@ function closeClassModal() {
 
 function toggleClassDay(btn) { btn.classList.toggle('selected'); }
 
+function onClassTypeChange() {
+  const type = document.getElementById('c_type').value;
+  const isMamnon = type === 'mamnon';
+  document.getElementById('classDaysPicker').style.display = isMamnon ? 'none' : 'flex';
+  document.getElementById('classMamnonNote').style.display = isMamnon ? 'block' : 'none';
+}
+
 async function saveClass() {
   const name = document.getElementById('c_name').value.trim();
   if (!name) return showToast('Vui lòng nhập tên lớp', 'error');
-  const days = [...document.querySelectorAll('#classDaysPicker .day-btn.selected')].map(b => b.dataset.day);
-  const data = { name, class_type: document.getElementById('c_type').value, schedule_days: days, active: true };
+  const classType = document.getElementById('c_type').value;
+  let days = [...document.querySelectorAll('#classDaysPicker .day-btn.selected')].map(b => b.dataset.day);
+  // Auto T2-T7 for mamnon
+  if (classType === 'mamnon') days = ['2','3','4','5','6','7'];
+  const data = { name, class_type: classType, schedule_days: days, active: true };
   try {
     if (editingClassId) {
       await api.patch('classes', data, `?id=eq.${editingClassId}`);

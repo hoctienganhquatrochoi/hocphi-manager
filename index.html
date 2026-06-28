@@ -1572,9 +1572,12 @@ async function calcAllFees() {
       const cfg = feeConfigs[s.class_type] || {};
       let baseFee = 0, mealFee = 0, zumbaFee = 0;
       if (s.class_type === 'mamnon') {
-        baseFee = cfg.base_fee || 3500000;
-        mealFee = sessions * (cfg.meal_fee_per_session || 25000);
-        zumbaFee = cfg.zumba_fee || 200000;
+        if (sessions > 0) {
+          baseFee = cfg.base_fee || 3500000;
+          mealFee = sessions * (cfg.meal_fee_per_session || 25000);
+          zumbaFee = cfg.zumba_fee || 200000;
+        }
+        // sessions = 0 → nghỉ cả tháng → không thu gì
       } else {
         baseFee = sessions * (cfg.fee_per_session || 150000);
       }

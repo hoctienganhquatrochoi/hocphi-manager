@@ -334,11 +334,8 @@
         <div class="page-title">🏫 Quản lý lớp</div>
         <button class="btn btn-primary" onclick="openClassModal()">+ Thêm lớp</button>
       </div>
-      <div class="tabs">
+      <div class="tabs" id="classTypeTabs">
         <button class="tab active" onclick="filterClassType('all',this)">Tất cả</button>
-        <button class="tab" onclick="filterClassType('mamnon',this)">Mầm non</button>
-        <button class="tab" onclick="filterClassType('tienganh',this)">Tiếng Anh</button>
-        <button class="tab" onclick="filterClassType('toan',this)">Toán</button>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -1031,9 +1028,22 @@ async function loadClasses() {
   } catch(e) { console.error(e); }
 }
 
+function renderClassTypeTabs() {
+  const tabsEl = document.getElementById('classTypeTabs');
+  if (!tabsEl) return;
+  tabsEl.innerHTML = `<button class="tab ${currentClassFilter==='all'?'active':''}" onclick="filterClassType('all',this)">Tất cả</button>`;
+  allClassTypes.forEach(ct => {
+    tabsEl.innerHTML += `<button class="tab ${currentClassFilter===ct.id?'active':''}" onclick="filterClassType('${ct.id}',this)">${ct.name}</button>`;
+  });
+}
+
 function renderClasses(filter) {
+  renderClassTypeTabs();
   const f = filter || currentClassFilter;
-  const list = allClasses.filter(c => f === 'all' || c.class_type === f);
+  const list = allClasses.filter(c => {
+    if (f === 'all') return true;
+    return c.class_type_id === f || c.class_type === f;
+  });
   const tbody = document.getElementById('classTableBody');
   if (!tbody) return;
   if (!list.length) {
@@ -1044,7 +1054,7 @@ function renderClasses(filter) {
     <tr>
       <td style="color:var(--muted)">${i+1}</td>
       <td><strong>${c.name}</strong></td>
-      <td><span class="badge badge-${c.class_type}">${typeLabel(c.class_type)}</span></td>
+      <td><span class="badge badge-${c.class_type}">${(() => { const ct = allClassTypes.find(x=>x.id===c.class_type_id); return ct ? ct.name : typeLabel(c.class_type); })()}</span></td>
       <td style="color:var(--muted);font-size:12px">${formatDays(c.schedule_days)}</td>
       <td style="color:var(--muted)">${allStudents.filter(s=>s.class_id===c.id).length} HS</td>
       <td>
@@ -1065,7 +1075,7 @@ function renderClasses(filter) {
 
 function filterClassType(type, el) {
   currentClassFilter = type;
-  document.querySelectorAll('#page-classes .tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#classTypeTabs .tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   renderClasses(type);
 }

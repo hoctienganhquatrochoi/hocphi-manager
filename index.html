@@ -1976,7 +1976,11 @@ async function buildZaloMsg(s, f, month, year) {
     } else {
       lines.push(`HP Tháng ${nextMonth}: ${fmt(f.base_fee)}`);
       lines.push(`Tiền ăn: ${fmt(f.meal_fee)}`);
-      if (f.zumba_fee) lines.push(`Zumba: ${fmt(f.zumba_fee)}`);
+      if (f.zumba_fee) {
+        const ct = allClassTypes.find(x => x.id === s.class_type_id) || allClassTypes.find(x => x.fee_type === 'fixed');
+        const extraName = ct?.extra_fee_name || 'Zumba';
+        lines.push(`${extraName}: ${fmt(f.zumba_fee)}`);
+      }
       if (absentDates.length > 0) {
         lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} ngày (${absentDates.join(', ')})`);
       }
@@ -1996,6 +2000,12 @@ async function buildZaloMsg(s, f, month, year) {
       lines.push(`Tổng: 0 đ`);
     } else {
       lines.push(`HP Tháng ${mo} (${f.sessions_present} buổi): ${fmt(f.base_fee)}`);
+      if (f.meal_fee) lines.push(`Tiền ăn: ${fmt(f.meal_fee)}`);
+      if (f.zumba_fee) {
+        const ct = allClassTypes.find(x => x.id === (s.class_type_id || allClasses.find(c=>c.id===s.class_id)?.class_type_id));
+        const extraName = ct?.extra_fee_name || 'Phụ phí';
+        lines.push(`${extraName}: ${fmt(f.zumba_fee)}`);
+      }
       if (absentDates.length > 0) {
         lines.push(`Nghỉ học tháng ${mo}: ${absentDates.length} buổi (${absentDates.join(', ')})`);
       }

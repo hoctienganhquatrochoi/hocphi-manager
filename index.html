@@ -1233,6 +1233,89 @@ function renderClassStudentTable(cls, students, classId) {
       </div>
     </div>`;
   document.getElementById('studentClassContent').innerHTML = html;
+
+  // Auto-save khi rời khỏi ô (blur) - dùng event delegation
+  const tbody = document.getElementById('classStudentBody');
+  tbody.addEventListener('blur', function(e) {
+    const input = e.target;
+    if (!input.classList || !input.classList.contains('inline-input')) return;
+    if (input.dataset.field === 'transfer') return; // transfer có onchange riêng
+    autoSaveRow(input.closest('tr'), classId);
+  }, true);
+  tbody.addEventListener('change', function(e) {
+    const input = e.target;
+    if (!input.classList || !input.classList.contains('inline-input')) return;
+    if (input.type !== 'date' && input.type !== 'checkbox') return;
+    if (input.dataset.field === 'transfer') return;
+    autoSaveRow(input.closest('tr'), classId);
+  });
+}
+
+let autoSaveTimers = {};
+async function autoSaveRow(row, classId) {
+  if (!row) return;
+  const studentId = row.dataset.studentId;
+  const name = row.querySelector('[data-field="name"]')?.value?.trim();
+  if (!name) return; // chưa nhập tên thì không lưu
+
+  // Debounce nhẹ để tránh gọi API liên tục khi gõ nhanh
+  clearTimeout(autoSaveTimers[studentId]);
+  autoSaveTimers[studentId] = setTimeout(async () => {
+    let scheduleDays, classType, classTypeId;
+    if (classId === 'mamnon') {
+      scheduleDays = ['2','3','4','5','6','7'];
+      classType = 'mamnon';
+      classTypeId = null;
+    } else {
+      const cls = allClasses.find(c => c.id === classId);
+      scheduleDays = cls?.schedule_days || [];
+      classType = cls?.class_type || 'tienganh';
+      classTypeId = cls?.class_type_id || null;
+      if (classType === 'mamnon' && !scheduleDays.length) scheduleDays = ['2','3','4','5','6','7'];
+    }
+
+    const dob = row.querySelector('[data-field="dob"]')?.value || null;
+    const phone = row.querySelector('[data-field="phone"]')?.value?.trim() || null;
+    const parent = row.querySelector('[data-field="parent"]')?.value?.trim() || null;
+    const discountPercent = parseInt(row.querySelector('[data-field="discount"]')?.value) || 0;
+
+    const data = {
+      name, date_of_birth: dob, phone_zalo: phone, parent_name: parent,
+      discount_10: discountPercent >= 10, discount_percent: discountPercent,
+      class_type: classType, class_id: classId === 'mamnon' ? null : classId,
+      class_type_id: classTypeId, schedule_days: scheduleDays, active: true
+    };
+
+    try {
+      if (studentId.startsWith('new_')) {
+        const created = await api.post('students', data);
+        if (created && created[0]) {
+          row.dataset.studentId = created[0].id;
+          // Thêm hàng trống mới ở dưới
+          const tbody = document.getElementById('classStudentBody');
+          if (tbody && tbody.lastElementChild === row) {
+            const otherClasses = allClasses.filter(c => c.id !== classId);
+            const idx = tbody.querySelectorAll('tr').length;
+            const div = document.createElement('div');
+            div.innerHTML = buildEmptyRow(idx, otherClasses, classId);
+            tbody.appendChild(div.firstElementChild);
+          }
+        }
+      } else {
+        await api.patch('students', data, `?id=eq.${studentId}`);
+      }
+      showAutoSaveBadge(row);
+      await loadStudents();
+    } catch(e) { console.error('Auto-save lỗi:', e); }
+  }, 500);
+}
+
+function showAutoSaveBadge(row) {
+  const firstCell = row.querySelector('td');
+  if (!firstCell) return;
+  const old = firstCell.textContent;
+  firstCell.innerHTML = '<span style="color:var(--green);font-size:11px">✓ Đã lưu</span>';
+  setTimeout(() => { firstCell.textContent = old; }, 1200);
 }
 
 function buildStudentRow(s, i, otherClasses, currentClassId) {

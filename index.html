@@ -836,7 +836,7 @@ function showPage(name) {
   if (name === 'attendance') { populateClassDropdown('attClassFilter', 'all'); loadAttendance(); }
   if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); loadFees(); }
   if (name === 'config') { loadClassTypes(); }
-  if (name === 'zalo') { populateClassDropdown('zaloClassFilter', 'all'); loadZaloList(); }
+  if (name === 'zalo') { loadZaloList(); }
   if (name === 'export') { populateClassDropdown('exportClassFilter', 'all'); }
   if (name === 'fees') loadFees();
   if (name === 'zalo') loadZaloList();
@@ -1022,9 +1022,10 @@ async function loadClasses() {
   try {
     allClasses = await api.get('classes', '?active=eq.true&order=name.asc');
     renderClasses();
-    // Update all dropdowns
+    // Update all dropdowns (giữ nguyên lựa chọn hiện tại)
     ['feeClassFilter','zaloClassFilter','exportClassFilter'].forEach(id => {
-      populateClassDropdown(id, 'all');
+      const el = document.getElementById(id);
+      populateClassDropdown(id, el ? el.value : 'all');
     });
   } catch(e) { console.error(e); }
 }
@@ -1066,10 +1067,11 @@ function renderClasses(filter) {
       </td>
     </tr>
   `).join('');
-  // Refresh all dropdowns
+  // Refresh all dropdowns (giữ nguyên lựa chọn hiện tại)
   setTimeout(() => {
     ['feeClassFilter','zaloClassFilter','exportClassFilter','attClassFilter'].forEach(id => {
-      populateClassDropdown(id, 'all');
+      const el = document.getElementById(id);
+      populateClassDropdown(id, el ? el.value : 'all');
     });
   }, 100);
 }

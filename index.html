@@ -1271,7 +1271,19 @@ async function autoSaveRow(row, classId) {
       if (classType === 'mamnon' && !scheduleDays.length) scheduleDays = ['2','3','4','5','6','7'];
     }
 
-    const dob = row.querySelector('[data-field="dob"]')?.value || null;
+    const dobRaw = row.querySelector('[data-field="dob"]')?.value?.trim() || null;
+    // Convert dd/mm/yyyy hoặc dd-mm-yyyy sang yyyy-mm-dd
+    let dob = null;
+    if (dobRaw) {
+      const parts = dobRaw.split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          dob = dobRaw; // đã đúng format yyyy-mm-dd
+        } else {
+          dob = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+        }
+      }
+    }
     const phone = row.querySelector('[data-field="phone"]')?.value?.trim() || null;
     const parent = row.querySelector('[data-field="parent"]')?.value?.trim() || null;
     const discountPercent = parseInt(row.querySelector('[data-field="discount"]')?.value) || 0;
@@ -1323,7 +1335,7 @@ function buildStudentRow(s, i, otherClasses, currentClassId) {
   return `<tr data-student-id="${s.id}" style="border-bottom:1px solid rgba(46,51,72,0.4)">
     <td style="color:var(--muted);font-size:12px">${i+1}</td>
     <td><input class="inline-input" value="${s.name||''}" data-field="name" placeholder="Tên học sinh *" /></td>
-    <td><input class="inline-input" type="date" value="${s.date_of_birth||''}" data-field="dob" /></td>
+    <td><input class="inline-input" type="text" value="${s.date_of_birth ? formatDate(s.date_of_birth) : ''}" data-field="dob" placeholder="dd/mm/yyyy" /></td>
     <td><input class="inline-input" value="${s.phone_zalo||''}" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" value="${s.parent_name||''}" data-field="parent" placeholder="Tên PH" /></td>
     <td style="text-align:center"><input type="number" class="inline-input" value="${s.discount_percent||0}" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
@@ -1341,7 +1353,7 @@ function buildEmptyRow(index, otherClasses, currentClassId) {
   return `<tr data-student-id="new_${Date.now()}" style="border-bottom:1px solid rgba(46,51,72,0.4);background:rgba(240,165,0,0.03)">
     <td style="color:var(--muted);font-size:12px">${index+1}</td>
     <td><input class="inline-input" data-field="name" placeholder="Tên học sinh *" /></td>
-    <td><input class="inline-input" type="date" data-field="dob" /></td>
+    <td><input class="inline-input" type="text" data-field="dob" placeholder="dd/mm/yyyy" /></td>
     <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
     <td style="text-align:center"><input type="number" class="inline-input" value="0" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
@@ -1360,7 +1372,7 @@ function addNewRow(classId) {
   newRow.innerHTML = `
     <td style="color:var(--muted);font-size:12px">${rows.length + 1}</td>
     <td><input class="inline-input" data-field="name" placeholder="Tên học sinh *" /></td>
-    <td><input class="inline-input" type="date" data-field="dob" /></td>
+    <td><input class="inline-input" type="text" data-field="dob" placeholder="dd/mm/yyyy" /></td>
     <td><input class="inline-input" data-field="phone" placeholder="0912..." /></td>
     <td><input class="inline-input" data-field="parent" placeholder="Tên PH" /></td>
     <td style="text-align:center"><input type="number" class="inline-input" value="0" data-field="discount" min="0" max="100" style="width:60px;text-align:center" placeholder="0" /></td>
@@ -1398,7 +1410,19 @@ async function saveAllStudents(classId) {
     const name = row.querySelector('[data-field="name"]')?.value?.trim();
     if (!name) continue; // skip empty rows
 
-    const dob = row.querySelector('[data-field="dob"]')?.value || null;
+    const dobRaw = row.querySelector('[data-field="dob"]')?.value?.trim() || null;
+    // Convert dd/mm/yyyy hoặc dd-mm-yyyy sang yyyy-mm-dd
+    let dob = null;
+    if (dobRaw) {
+      const parts = dobRaw.split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          dob = dobRaw; // đã đúng format yyyy-mm-dd
+        } else {
+          dob = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+        }
+      }
+    }
     const phone = row.querySelector('[data-field="phone"]')?.value?.trim() || null;
     const parent = row.querySelector('[data-field="parent"]')?.value?.trim() || null;
     const discountPercent = parseInt(row.querySelector('[data-field="discount"]')?.value) || 0;

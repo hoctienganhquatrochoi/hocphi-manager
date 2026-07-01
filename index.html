@@ -2234,18 +2234,25 @@ async function loadDashboard() {
     }
     const studentMap = {};
     allStudents.forEach(s => { studentMap[s.id] = s; });
-    const byType = { mamnon: [], tienganh: [], toan: [] };
+    // Nhóm theo lớp/loại lớp thực tế (không hardcode), để không bỏ sót loại lớp mới tạo
+    const byGroup = {};
     fees.forEach(f => {
       const s = studentMap[f.student_id];
-      if (s) byType[s.class_type]?.push(f);
+      if (!s) return;
+      const cls = allClasses.find(c => c.id === s.class_id);
+      const groupKey = cls ? cls.id : s.class_type;
+      const groupName = cls ? cls.name : typeLabel(s.class_type);
+      if (!byGroup[groupKey]) byGroup[groupKey] = { name: groupName, list: [] };
+      byGroup[groupKey].list.push(f);
     });
     let html = '';
-    for (const [type, list] of Object.entries(byType)) {
+    for (const group of Object.values(byGroup)) {
+      const list = group.list;
       if (!list.length) continue;
       const total = list.reduce((s,f) => s+f.total, 0);
       html += `
         <div style="margin-bottom:16px">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">${typeLabel(type)} — ${list.length} học sinh</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">${group.name} — ${list.length} học sinh</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
             ${list.map(f => {
               const s = studentMap[f.student_id];
@@ -2255,7 +2262,7 @@ async function loadDashboard() {
               </div>`;
             }).join('')}
           </div>
-          <div style="text-align:right;font-size:13px;color:var(--muted)">Tổng ${typeLabel(type)}: <strong style="color:var(--accent)">${fmt(total)}</strong></div>
+          <div style="text-align:right;font-size:13px;color:var(--muted)">Tổng ${group.name}: <strong style="color:var(--accent)">${fmt(total)}</strong></div>
         </div>
       `;
     }

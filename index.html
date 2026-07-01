@@ -301,11 +301,8 @@
           <input type="month" id="dashMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadDashboard()">
         </div>
       </div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="dashStatsGrid">
         <div class="stat-card"><div class="stat-label">Tổng học sinh</div><div class="stat-value blue" id="statTotal">-</div></div>
-        <div class="stat-card"><div class="stat-label">Mầm non</div><div class="stat-value gold" id="statMamnon">-</div></div>
-        <div class="stat-card"><div class="stat-label">Tiếng Anh</div><div class="stat-value blue" id="statTA">-</div></div>
-        <div class="stat-card"><div class="stat-label">Toán</div><div class="stat-value green" id="statToan">-</div></div>
       </div>
       <div class="card">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px">💰 Học phí tháng này</div>
@@ -2215,9 +2212,26 @@ function exportExcelByType(type) { exportExcel(); }
 // ============================================
 function updateDashStats() {
   document.getElementById('statTotal').textContent = allStudents.length;
-  document.getElementById('statMamnon').textContent = allStudents.filter(s=>s.class_type==='mamnon').length;
-  document.getElementById('statTA').textContent = allStudents.filter(s=>s.class_type==='tienganh').length;
-  document.getElementById('statToan').textContent = allStudents.filter(s=>s.class_type==='toan').length;
+  const grid = document.getElementById('dashStatsGrid');
+  if (!grid) return;
+  // Remove old dynamic cards
+  grid.querySelectorAll('.stat-card-dynamic').forEach(e => e.remove());
+  const colors = ['gold','blue','green','red','blue','green'];
+  // Group students by class_type_id or class_type
+  const groups = {};
+  allStudents.forEach(s => {
+    const ct = allClassTypes.find(x => x.id === s.class_type_id);
+    const key = ct ? ct.id : s.class_type;
+    const label = ct ? ct.name : (s.class_type==='mamnon'?'Mầm non':s.class_type==='tienganh'?'Tiếng Anh':'Toán');
+    if (!groups[key]) groups[key] = { label, count: 0 };
+    groups[key].count++;
+  });
+  Object.values(groups).forEach((g, i) => {
+    const card = document.createElement('div');
+    card.className = 'stat-card stat-card-dynamic';
+    card.innerHTML = `<div class="stat-label">${g.label}</div><div class="stat-value ${colors[i%colors.length]}">${g.count}</div>`;
+    grid.appendChild(card);
+  });
 }
 
 async function loadDashboard() {

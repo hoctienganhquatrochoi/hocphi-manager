@@ -1236,9 +1236,20 @@ function renderClassStudentTable(cls, students, classId) {
   tbody.addEventListener('blur', function(e) {
     const input = e.target;
     if (!input.classList || !input.classList.contains('inline-input')) return;
-    if (input.dataset.field === 'transfer') return; // transfer có onchange riêng
+    if (input.dataset.field === 'transfer') return;
     autoSaveRow(input.closest('tr'), classId);
   }, true);
+
+  // Auto thêm / khi gõ ngày sinh
+  tbody.addEventListener('input', function(e) {
+    const input = e.target;
+    if (!input.classList.contains('inline-input')) return;
+    if (input.dataset.field !== 'dob') return;
+    let v = input.value.replace(/[^0-9]/g, '');
+    if (v.length >= 3 && v.length <= 4) v = v.slice(0,2) + '/' + v.slice(2);
+    else if (v.length >= 5) v = v.slice(0,2) + '/' + v.slice(2,4) + '/' + v.slice(4,8);
+    input.value = v;
+  });
   tbody.addEventListener('change', function(e) {
     const input = e.target;
     if (!input.classList || !input.classList.contains('inline-input')) return;

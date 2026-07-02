@@ -211,6 +211,7 @@
   .bottom-nav-item.active { color: var(--accent); }
   .bottom-nav-item .bnav-icon { font-size: 22px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1208,6 +1209,7 @@ function renderClassStudentTable(cls, students, classId) {
         <div style="font-size:15px;font-weight:700">🏫 ${cls.name} <span style="color:var(--muted);font-size:13px;font-weight:400">(${students.length} học sinh)</span></div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-secondary btn-sm" onclick="addNewRow('${classId}')">+ Thêm hàng</button>
+          <button class="btn btn-green btn-sm" onclick="exportStudentList('${classId}','${cls.name}')">📤 Xuất Excel</button>
           <button class="btn btn-primary" onclick="saveAllStudents('${classId}')">💾 Lưu tất cả</button>
         </div>
       </div>
@@ -2228,16 +2230,61 @@ async function exportExcel() {
     rows.push([]);
   }
 
-  // Build CSV
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const bom = '\uFEFF';
-  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  // Build XLSX using SheetJS
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Học phí
+  const feeRows = [];
+  feeRows.push([`BÁO CÁO HỌC PHÍ THÁNG ${parseInt(mo)}/${yr} - ${className}`]);
+  feeRows.push([]);
+  feeRows.push(['STT','Tên học sinh','Lớp','Số buổi','HP cơ bản','Tiền ăn','Phụ phí','Giảm','Tổng tiền','SĐT Zalo']);
+  let grandTotal2 = 0, stt2 = 1;
+  for (const f of filtered) {
+    const s = studentMap[f.student_id] || {};
+    const cls = allClasses.find(c => c.id === s.class_id);
+    feeRows.push([stt2++, s.name||'', cls?.name||typeLabel(s.class_type), f.sessions_present, f.base_fee, f.meal_fee||0, f.zumba_fee||0, f.discount_amount||0, f.total, s.phone_zalo||'']);
+    grandTotal2 += f.total;
+  }
+  feeRows.push([]);
+  feeRows.push(['','','','','','','','TỔNG CỘNG','',grandTotal2,'']);
+  const ws1 = XLSX.utils.aoa_to_sheet(feeRows);
+  ws1['!cols'] = [{wch:5},{wch:20},{wch:15},{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Học phí');
+
+  // Sheet 2: Điểm danh
+  const attRows2 = [];
+  attRows2.push([`ĐIỂM DANH CHI TIẾT THÁNG ${parseInt(mo)}/${yr}`]);
+  attRows2.push([]);
+  for (const f of filtered) {
+    const s = studentMap[f.student_id];
+    if (!s) continue;
+    const scheduledDates = getScheduledDates(s.schedule_days || [], parseInt(yr), parseInt(mo));
+    if (!scheduledDates.length) continue;
+    const headerRow2 = ['Tên'];
+    scheduledDates.forEach(d => {
+      const dateObj = new Date(d + 'T00:00:00');
+      const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+      headerRow2.push(`${dayNames[dateObj.getDay()]} ${parseInt(d.split('-')[2])}`);
+    });
+    headerRow2.push('Có mặt','Nghỉ');
+    attRows2.push(headerRow2);
+    const studentRow2 = [s.name];
+    let presentCount2 = 0;
+    scheduledDates.forEach(date => {
+      const present = attMap[`${s.id}_${date}`] !== false;
+      if (present) presentCount2++;
+      studentRow2.push(present ? '✓' : '✗');
+    });
+    studentRow2.push(presentCount2, scheduledDates.length - presentCount2);
+    attRows2.push(studentRow2);
+    attRows2.push([]);
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(attRows2);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Điểm danh');
+
   const safeName = className.replace(/[^a-zA-Z0-9]/g, '_');
-  a.download = `HocPhi_${safeName}_T${mo}_${yr}.csv`;
-  a.click();
-  showToast('Đã xuất file ✓', 'success');
+  XLSX.writeFile(wb, `HocPhi_${safeName}_T${mo}_${yr}.xlsx`);
+  showToast('Đã xuất file Excel ✓', 'success');
 }
 
 function exportExcelByType(type) { exportExcel(); }

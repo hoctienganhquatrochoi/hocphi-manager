@@ -894,7 +894,6 @@ async function initApp() {
   await loadClassTypes();
   await loadClasses();
   await loadStudents();
-  await loadTeachers();
   loadDashboard();
 }
 
@@ -1596,6 +1595,7 @@ function renderStudents(filter = null, search = '') {
     return typeMatch && nameMatch;
   });
   const tbody = document.getElementById('studentTableBody');
+  if (!tbody) return; // trang học sinh mới không có bảng này
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div></td></tr>`;
     return;
@@ -2463,6 +2463,209 @@ async function changePassword() {
     showToast('Đã đổi mật khẩu ✓', 'success');
     ['oldPass','newPass','newPass2'].forEach(id => document.getElementById(id).value = '');
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// ============================================
+// TEACHERS
+// ============================================
+let allTeachers = [];
+let editingTeacherId = null;
+let noteCallback = null;
+
+async function loadTeachers() {
+  try {
+    allTeachers = await api.get('teachers', '?active=eq.true&order=name.asc');
+    renderTeachers();
+  } catch(e) { console.error(e); }
+}
+
+function renderTeachers() {
+  const tbody = document.getElementById('teacherTableBody');
+  if (!tbody) return;
+  if (!allTeachers.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">👩‍🏫</div><p>Chưa có giáo viên</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allTeachers.map((t, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${t.name}</strong></td>
+      <td style="color:var(--accent)">${fmt(t.salary_per_session)} đ/buổi</td>
+      <td style="color:var(--muted);font-size:12px">${formatDays(t.schedule_days)}</td>
+      <td><div class="actions-row">
+        <button class="btn btn-secondary btn-sm" onclick="openTeacherModal('${t.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}','${t.name}')">🗑️</button>
+      </div></td>
+    </tr>
+  `).join('');
+}
+
+function showTeacherTab(tab, el) {
+  document.querySelectorAll('#page-teachers .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('teacherListTab').style.display = tab === 'list' ? 'block' : 'none';
+  document.getElementById('teacherAttTab').style.display = tab === 'attendance' ? 'block' : 'none';
+  if (tab === 'attendance') loadTeacherAttendance();
+}
+
+function openTeacherModal(id = null) {
+  editingTeacherId = id;
+  document.getElementById('teacherModalTitle').textContent = id ? 'Sửa giáo viên' : 'Thêm giáo viên';
+  document.querySelectorAll('#teacherDaysPicker .day-btn').forEach(b => b.classList.remove('selected'));
+  if (id) {
+    const t = allTeachers.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('t_name').value = t.name;
+    document.getElementById('t_salary').value = t.salary_per_session || 0;
+    (t.schedule_days || []).forEach(d => {
+      document.querySelector(`#teacherDaysPicker .day-btn[data-tday="${d}"]`)?.classList.add('selected');
+    });
+  } else {
+    document.getElementById('t_name').value = '';
+    document.getElementById('t_salary').value = '';
+  }
+  document.getElementById('teacherModal').classList.add('show');
+}
+
+function closeTeacherModal() {
+  document.getElementById('teacherModal').classList.remove('show');
+  editingTeacherId = null;
+}
+
+async function saveTeacher() {
+  const name = document.getElementById('t_name').value.trim();
+  if (!name) return showToast('Vui lòng nhập tên giáo viên', 'error');
+  const days = [...document.querySelectorAll('#teacherDaysPicker .day-btn.selected')].map(b => b.dataset.tday);
+  const data = { name, salary_per_session: +document.getElementById('t_salary').value || 0, schedule_days: days, active: true };
+  try {
+    if (editingTeacherId) {
+      await api.patch('teachers', data, `?id=eq.${editingTeacherId}`);
+      showToast('Đã cập nhật ✓', 'success');
+    } else {
+      await api.post('teachers', data);
+      showToast('Đã thêm giáo viên ✓', 'success');
+    }
+    closeTeacherModal();
+    await loadTeachers();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function deleteTeacher(id, name) {
+  if (!confirm(`Xóa giáo viên "${name}"?`)) return;
+  try {
+    await api.delete('teachers', `?id=eq.${id}`);
+    showToast('Đã xóa ✓', 'success');
+    await loadTeachers();
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function loadTeacherAttendance() {
+  const month = document.getElementById('teacherMonth')?.value;
+  if (!month || !allTeachers.length) return;
+  const [yr, mo] = month.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const startDate = `${month}-01`;
+  const endDate = `${month}-${String(daysInMonth).padStart(2,'0')}`;
+  const records = await api.get('teacher_attendance', `?teacher_id=in.(${allTeachers.map(t=>t.id).join(',')})&date=gte.${startDate}&date=lte.${endDate}`);
+  const recMap = {};
+  records.forEach(r => { recMap[`${r.teacher_id}_${r.date}`] = r; });
+
+  let html = '';
+  for (const t of allTeachers) {
+    const scheduledDates = getScheduledDates(t.schedule_days || [], yr, mo);
+    if (!scheduledDates.length) continue;
+    let presentCount = 0;
+    let btns = '';
+    for (const date of scheduledDates) {
+      const rec = recMap[`${t.id}_${date}`];
+      const present = rec ? rec.present : true;
+      const note = rec?.note || '';
+      if (present) presentCount++;
+      const d = new Date(date + 'T00:00:00').getDate();
+      btns += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <button class="att-btn-teacher" data-teacher="${t.id}" data-date="${date}" data-present="${present}"
+          style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;
+          background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
+          color:${present ? '#3ecf8e' : '#e05c5c'};
+          border-color:${present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)'}"
+          title="${date}${note ? ' - '+note : ''}">${d}</button>
+        ${note ? `<span style="font-size:9px;color:var(--muted);max-width:38px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note}</span>` : '<span style="font-size:9px"> </span>'}
+      </div>`;
+    }
+    const salary = presentCount * (t.salary_per_session || 0);
+    html += `<div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div><strong>${t.name}</strong><span style="margin-left:8px;font-size:13px;color:var(--muted)">${fmt(t.salary_per_session)}đ/buổi</span></div>
+        <span style="font-size:13px;color:var(--muted)">
+          Dạy: <strong style="color:var(--green)" id="tpresent_${t.id}">${presentCount}</strong>/${scheduledDates.length} buổi
+          &nbsp;|&nbsp; Lương: <strong style="color:var(--accent)" id="tsalary_${t.id}">${fmt(salary)}đ</strong>
+        </span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${btns}</div>
+    </div>`;
+  }
+
+  const el = document.getElementById('teacherAttContent');
+  if (!el) return;
+  el.innerHTML = html || `<div class="empty-state"><div class="icon">📅</div><p>Không có dữ liệu</p></div>`;
+
+  el.onclick = async function(e) {
+    const btn = e.target.closest('.att-btn-teacher');
+    if (!btn) return;
+    const teacherId = btn.dataset.teacher;
+    const date = btn.dataset.date;
+    const isPresent = btn.dataset.present !== 'false';
+    if (isPresent) {
+      openNoteModal(async (note) => { await toggleTeacherAtt(teacherId, date, btn, false, note); });
+    } else {
+      await toggleTeacherAtt(teacherId, date, btn, true, '');
+    }
+  };
+}
+
+async function toggleTeacherAtt(teacherId, date, btn, present, note) {
+  try {
+    const existing = await api.get('teacher_attendance', `?teacher_id=eq.${teacherId}&date=eq.${date}`);
+    if (existing && existing.length > 0) {
+      await api.patch('teacher_attendance', { present, note: note||null }, `?teacher_id=eq.${teacherId}&date=eq.${date}`);
+    } else {
+      await api.post('teacher_attendance', { teacher_id: teacherId, date, present, note: note||null });
+    }
+    btn.dataset.present = String(present);
+    btn.style.background = present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)';
+    btn.style.color = present ? '#3ecf8e' : '#e05c5c';
+    btn.style.borderColor = present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)';
+    btn.title = date + (note ? ' - '+note : '');
+    const noteSpan = btn.parentElement?.querySelector('span');
+    if (noteSpan) { noteSpan.textContent = note||' '; noteSpan.title = note||''; }
+    // Update count & salary
+    const card = btn.closest('.card');
+    const allBtns = card.querySelectorAll('.att-btn-teacher');
+    const presentCount = [...allBtns].filter(b => b.dataset.present !== 'false').length;
+    const t = allTeachers.find(x => x.id === teacherId);
+    const countEl = document.getElementById(`tpresent_${teacherId}`);
+    const salEl = document.getElementById(`tsalary_${teacherId}`);
+    if (countEl) countEl.textContent = presentCount;
+    if (salEl) salEl.textContent = fmt(presentCount * (t?.salary_per_session||0)) + 'đ';
+  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+function openNoteModal(callback) {
+  noteCallback = callback;
+  document.getElementById('noteInput').value = '';
+  document.getElementById('noteModal').classList.add('show');
+  setTimeout(() => document.getElementById('noteInput').focus(), 100);
+}
+
+function closeNoteModal() {
+  document.getElementById('noteModal').classList.remove('show');
+  noteCallback = null;
+}
+
+function confirmNote() {
+  const note = document.getElementById('noteInput').value.trim();
+  closeNoteModal();
+  if (noteCallback) noteCallback(note);
 }
 
 // ============================================

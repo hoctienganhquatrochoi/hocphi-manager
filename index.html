@@ -2628,6 +2628,7 @@ async function loadTeacherAttendance() {
 }
 
 async function toggleTeacherAtt(teacherId, date, btn, present, note) {
+  console.log('toggleTeacherAtt:', teacherId, date, present, note, 'btn:', btn);
   try {
     const existing = await api.get('teacher_attendance', `?teacher_id=eq.${teacherId}&date=eq.${date}`);
     if (existing && existing.length > 0) {

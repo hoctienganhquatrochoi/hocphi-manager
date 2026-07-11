@@ -2609,9 +2609,11 @@ async function loadTeacherAttendance() {
   if (!el) return;
   el.innerHTML = html || `<div class="empty-state"><div class="icon">📅</div><p>Không có dữ liệu</p></div>`;
 
-  el.onclick = async function(e) {
+  el.onclick = null;
+  el.addEventListener('click', async function(e) {
     const btn = e.target.closest('.att-btn-teacher');
     if (!btn) return;
+    e.stopPropagation();
     const teacherId = btn.dataset.teacher;
     const date = btn.dataset.date;
     const isPresent = btn.dataset.present !== 'false';
@@ -2620,7 +2622,7 @@ async function loadTeacherAttendance() {
     } else {
       await toggleTeacherAtt(teacherId, date, btn, true, '');
     }
-  };
+  });
 }
 
 async function toggleTeacherAtt(teacherId, date, btn, present, note) {

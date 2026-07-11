@@ -2582,15 +2582,12 @@ async function loadTeacherAttendance() {
       const note = rec?.note || '';
       if (present) presentCount++;
       const d = new Date(date + 'T00:00:00').getDate();
-      btns += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <button class="att-btn-teacher" data-teacher="${t.id}" data-date="${date}" data-present="${present}"
+      btns += `<button class="att-btn-teacher" data-teacher="${t.id}" data-date="${date}" data-present="${present}"
           style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;
           background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
           color:${present ? '#3ecf8e' : '#e05c5c'};
           border-color:${present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)'}"
-          title="${date}${note ? ' - '+note : ''}">${d}</button>
-        ${note ? `<span style="font-size:9px;color:var(--muted);max-width:38px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note}</span>` : '<span style="font-size:9px"> </span>'}
-      </div>`;
+          title="${date}">${d}</button>`;
     }
     const salary = presentCount * (t.salary_per_session || 0);
     html += `<div class="card" style="margin-bottom:16px">
@@ -2612,22 +2609,12 @@ async function loadTeacherAttendance() {
   el.onclick = null;
   el.addEventListener('click', async function(e) {
     const btn = e.target.closest('.att-btn-teacher');
-    console.log('Teacher click:', btn?.dataset);
     if (!btn) return;
     e.stopPropagation();
     const teacherId = btn.dataset.teacher;
     const date = btn.dataset.date;
     const isPresent = btn.dataset.present !== 'false';
-    console.log('isPresent:', isPresent, 'present value:', btn.dataset.present);
-    // Lưu reference btn vào biến cố định trước khi mở modal
-    const capturedBtn = btn;
-    if (isPresent) {
-      openNoteModal(async (note) => { 
-        await toggleTeacherAtt(teacherId, date, capturedBtn, false, note); 
-      });
-    } else {
-      await toggleTeacherAtt(teacherId, date, capturedBtn, true, '');
-    }
+    await toggleTeacherAtt(teacherId, date, btn, !isPresent, '');
   });
 }
 
@@ -2674,8 +2661,10 @@ function closeNoteModal() {
 function confirmNote() {
   const note = document.getElementById('noteInput').value.trim();
   console.log('confirmNote called, note:', note, 'callback:', noteCallback);
-  closeNoteModal();
-  if (noteCallback) noteCallback(note);
+  const cb = noteCallback; // lưu callback trước
+  noteCallback = null;     // xóa ref
+  document.getElementById('noteModal').classList.remove('show'); // đóng modal
+  if (cb) cb(note);        // gọi sau khi đã lưu
 }
 
 // ============================================

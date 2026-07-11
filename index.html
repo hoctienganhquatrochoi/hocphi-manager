@@ -2612,11 +2612,13 @@ async function loadTeacherAttendance() {
   el.onclick = null;
   el.addEventListener('click', async function(e) {
     const btn = e.target.closest('.att-btn-teacher');
+    console.log('Teacher click:', btn?.dataset);
     if (!btn) return;
     e.stopPropagation();
     const teacherId = btn.dataset.teacher;
     const date = btn.dataset.date;
     const isPresent = btn.dataset.present !== 'false';
+    console.log('isPresent:', isPresent, 'present value:', btn.dataset.present);
     if (isPresent) {
       openNoteModal(async (note) => { await toggleTeacherAtt(teacherId, date, btn, false, note); });
     } else {

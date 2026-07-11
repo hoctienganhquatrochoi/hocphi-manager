@@ -2619,10 +2619,14 @@ async function loadTeacherAttendance() {
     const date = btn.dataset.date;
     const isPresent = btn.dataset.present !== 'false';
     console.log('isPresent:', isPresent, 'present value:', btn.dataset.present);
+    // Lưu reference btn vào biến cố định trước khi mở modal
+    const capturedBtn = btn;
     if (isPresent) {
-      openNoteModal(async (note) => { await toggleTeacherAtt(teacherId, date, btn, false, note); });
+      openNoteModal(async (note) => { 
+        await toggleTeacherAtt(teacherId, date, capturedBtn, false, note); 
+      });
     } else {
-      await toggleTeacherAtt(teacherId, date, btn, true, '');
+      await toggleTeacherAtt(teacherId, date, capturedBtn, true, '');
     }
   });
 }

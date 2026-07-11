@@ -2668,6 +2668,7 @@ function closeNoteModal() {
 
 function confirmNote() {
   const note = document.getElementById('noteInput').value.trim();
+  console.log('confirmNote called, note:', note, 'callback:', noteCallback);
   closeNoteModal();
   if (noteCallback) noteCallback(note);
 }

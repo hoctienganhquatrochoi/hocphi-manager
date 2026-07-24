@@ -266,9 +266,6 @@
     <div class="nav-item" onclick="showPage('classes')">
       <span class="nav-icon">🏫</span><span>Quản lý lớp</span>
     </div>
-    <div class="nav-item" onclick="showPage('teachers')">
-      <span class="nav-icon">👩‍🏫</span><span>Giáo viên</span>
-    </div>
     <div class="nav-item" onclick="showPage('attendance')">
       <span class="nav-icon">📅</span><span>Điểm danh</span>
     </div>
@@ -351,37 +348,6 @@
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
-
-    <!-- TEACHERS -->
-    <div id="page-teachers" class="page">
-      <div class="page-header">
-        <div class="page-title">👩‍🏫 Giáo viên</div>
-        <button class="btn btn-primary" onclick="openTeacherModal()">+ Thêm giáo viên</button>
-      </div>
-      <div class="tabs">
-        <button class="tab active" onclick="showTeacherTab('list',this)">📋 Danh sách</button>
-        <button class="tab" onclick="showTeacherTab('attendance',this)">📅 Điểm danh & Lương</button>
-      </div>
-      <div id="teacherListTab">
-        <div class="card">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Tên giáo viên</th><th>Lương/buổi</th><th>Lịch dạy</th><th>Thao tác</th></tr></thead>
-              <tbody id="teacherTableBody">
-                <tr><td colspan="5"><div class="empty-state"><div class="icon">👩‍🏫</div><p>Chưa có giáo viên</p></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div id="teacherAttTab" style="display:none">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-          <input type="month" id="teacherMonth" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px" onchange="loadTeacherAttendance()">
-          <button class="btn btn-secondary" onclick="loadTeacherAttendance()">🔄 Tải lại</button>
-        </div>
-        <div id="teacherAttContent"><div class="empty-state"><div class="icon">📅</div><p>Chọn tháng để xem</p></div></div>
       </div>
     </div>
 
@@ -533,48 +499,6 @@
     </div>
   </nav>
 </div><!-- /app -->
-
-<!-- TEACHER MODAL -->
-<div id="teacherModal" class="modal-overlay">
-  <div class="modal">
-    <h2 id="teacherModalTitle">Thêm giáo viên</h2>
-    <div class="form-grid">
-      <div class="form-group full"><label>Họ và tên *</label><input type="text" id="t_name" placeholder="VD: Cô Lan" /></div>
-      <div class="form-group full"><label>Lương/buổi (VND)</label><input type="number" id="t_salary" placeholder="VD: 200000" /></div>
-      <div class="form-group full">
-        <label>Lịch dạy trong tuần</label>
-        <div class="days-picker" id="teacherDaysPicker">
-          <button type="button" class="day-btn" data-tday="2" onclick="this.classList.toggle('selected')">T2</button>
-          <button type="button" class="day-btn" data-tday="3" onclick="this.classList.toggle('selected')">T3</button>
-          <button type="button" class="day-btn" data-tday="4" onclick="this.classList.toggle('selected')">T4</button>
-          <button type="button" class="day-btn" data-tday="5" onclick="this.classList.toggle('selected')">T5</button>
-          <button type="button" class="day-btn" data-tday="6" onclick="this.classList.toggle('selected')">T6</button>
-          <button type="button" class="day-btn" data-tday="7" onclick="this.classList.toggle('selected')">T7</button>
-          <button type="button" class="day-btn" data-tday="0" onclick="this.classList.toggle('selected')">CN</button>
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
-      <button class="btn btn-secondary" onclick="closeTeacherModal()">Hủy</button>
-      <button class="btn btn-primary" onclick="saveTeacher()">💾 Lưu</button>
-    </div>
-  </div>
-</div>
-
-<!-- NOTE MODAL -->
-<div id="noteModal" class="modal-overlay">
-  <div class="modal" style="max-width:360px">
-    <h2>📝 Ghi chú ngày nghỉ</h2>
-    <div class="form-group" style="margin:16px 0">
-      <label>Lý do nghỉ</label>
-      <input type="text" id="noteInput" placeholder="VD: Nghỉ ốm, Nghỉ phép..." onkeydown="if(event.key==='Enter')confirmNote()" />
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-secondary" onclick="closeNoteModal()">Hủy</button>
-      <button class="btn btn-primary" onclick="confirmNote()">✓ Xác nhận</button>
-    </div>
-  </div>
-</div>
 
 <!-- CLASS MODAL -->
 <div id="classModal" class="modal-overlay">
@@ -744,8 +668,9 @@ const api = {
   post: (t, b) => sb(t, 'POST', b),
   patch: (t, b, q) => sb(t, 'PATCH', b, q),
   delete: (t, q) => sb(t, 'DELETE', null, q),
-  upsert: async (t, b) => {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${t}`, {
+  upsert: async (t, b, onConflict) => {
+    const conflictQ = onConflict ? `?on_conflict=${onConflict}` : '';
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${t}${conflictQ}`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -755,6 +680,10 @@ const api = {
       },
       body: JSON.stringify(b)
     });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err);
+    }
     const text = await res.text();
     return text ? JSON.parse(text) : null;
   }
@@ -906,7 +835,6 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   event?.target?.closest('.nav-item')?.classList.add('active');
   if (name === 'classes') { loadClasses(); }
-  if (name === 'teachers') { loadTeachers(); const m = document.getElementById('teacherMonth'); if (m && !m.value) m.value = new Date().toISOString().slice(0,7); }
   if (name === 'students') { populateClassDropdown('studentClassFilter', 'all'); loadStudentsByClass(); }
   if (name === 'attendance') { populateClassDropdown('attClassFilter', 'all'); loadAttendance(); }
   if (name === 'fees') { populateClassDropdown('feeClassFilter', 'all'); loadFees(); }
@@ -930,6 +858,10 @@ async function loadFeeConfigs() {
 }
 
 function loadConfigForm() {
+  // Trang "Cấu hình phí" hiện tại dùng danh sách class_types (xem renderClassTypes),
+  // không còn các input cfg_mn_base/cfg_ta_per/cfg_toan_per nữa.
+  // Guard lại để không bị lỗi TypeError khi các phần tử này không tồn tại.
+  if (!document.getElementById('cfg_mn_base')) return;
   if (feeConfigs.mamnon) {
     document.getElementById('cfg_mn_base').value = feeConfigs.mamnon.base_fee || 3500000;
     document.getElementById('cfg_mn_meal').value = feeConfigs.mamnon.meal_fee_per_session || 25000;
@@ -1199,12 +1131,16 @@ async function saveClass() {
   const ctId = document.getElementById('c_class_type_id').value;
   if (!ctId) return showToast('Vui lòng chọn loại lớp', 'error');
   const ct = allClassTypes.find(x => x.id === ctId);
+  // "isMamnon" chỉ quyết định việc TỰ ĐỘNG GÁN LỊCH HỌC CẢ TUẦN (T2-T7),
+  // KHÔNG được dùng để suy ra classType (nhãn phân loại cũ) — nếu không sẽ gán nhầm
+  // mọi loại lớp tính phí "Cố định/tháng" (kể cả lớp Tiếng Anh) thành "mamnon",
+  // khiến trang Học sinh lọc sai và hiện 0 học sinh dù dữ liệu đúng.
   const isMamnon = ct?.fee_type === 'fixed';
   let days = [...document.querySelectorAll('#classDaysPicker .day-btn.selected')].map(b => b.dataset.day);
   if (isMamnon) days = ['2','3','4','5','6','7'];
-  // Map class_type for backward compat
+  // Map class_type cho tương thích ngược — CHỈ dựa vào TÊN loại lớp, không dựa vào fee_type
   let classType = 'tienganh';
-  if (ct?.name?.toLowerCase().includes('mầm non') || isMamnon) classType = 'mamnon';
+  if (ct?.name?.toLowerCase().includes('mầm non')) classType = 'mamnon';
   else if (ct?.name?.toLowerCase().includes('toán')) classType = 'toan';
   const data = { name, class_type: classType, class_type_id: ctId, schedule_days: days, active: true };
   try {
@@ -1595,7 +1531,9 @@ function renderStudents(filter = null, search = '') {
     return typeMatch && nameMatch;
   });
   const tbody = document.getElementById('studentTableBody');
-  if (!tbody) return; // trang học sinh mới không có bảng này
+  // Trang "Học sinh" hiện tại render qua loadStudentsByClass() -> #studentClassContent,
+  // không còn bảng #studentTableBody nữa. Guard lại để không bị lỗi TypeError.
+  if (!tbody) return;
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">👨‍🎓</div><p>Không có học sinh</p></div></td></tr>`;
     return;
@@ -1608,7 +1546,7 @@ function renderStudents(filter = null, search = '') {
       <td><span class="badge badge-${s.class_type}">${typeLabel(s.class_type)}${s.class_level ? ' · ' + s.class_level : ''}</span></td>
       <td style="color:var(--muted);font-size:12px">${formatDays(s.schedule_days)}</td>
       <td>${s.phone_zalo ? `<a href="https://zalo.me/${s.phone_zalo}" target="_blank" style="color:var(--blue);font-size:12px">${s.phone_zalo}</a>` : '-'}</td>
-      <td>${s.discount_10 ? '<span class="badge badge-discount">-${s.discount_percent||10}%</span>' : '-'}</td>
+      <td>${s.discount_10 ? `<span class="badge badge-discount">-${s.discount_percent||10}%</span>` : '-'}</td>
       <td>
         <div class="actions-row">
           <button class="btn btn-secondary btn-sm" onclick="openStudentModal('${s.id}')">✏️</button>
@@ -1688,7 +1626,7 @@ async function loadClassesDropdown(type) {
     opt.textContent = c.name;
     sel.appendChild(opt);
   });
-  sel.value = savedVal;
+  sel.value = currentVal;
 }
 
 function closeStudentModal() {
@@ -1836,17 +1774,29 @@ async function loadAttendance() {
     }, 0);
   }
   document.getElementById('attendanceContent').innerHTML = html;
-  // Event delegation for attendance buttons
-  document.getElementById('attendanceContent').addEventListener('click', async function(e) {
-    const btn = e.target.closest('.att-btn');
-    if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const studentId = btn.dataset.student;
-    const date = btn.dataset.date;
-    console.log('Click att:', studentId, date);
-    await toggleAtt(studentId, date, btn);
-  });
+  // Event delegation for attendance buttons.
+  // GẮN LISTENER 1 LẦN DUY NHẤT (dùng dataset flag) — nếu không, mỗi lần loadAttendance()
+  // chạy lại sẽ gắn thêm 1 listener mới lên cùng phần tử, khiến 1 lượt bấm gọi toggleAtt()
+  // nhiều lần cùng lúc -> 2 request POST attendance chạy song song -> lỗi 23505 duplicate key.
+  const attEl = document.getElementById('attendanceContent');
+  if (!attEl.dataset.listenerBound) {
+    attEl.dataset.listenerBound = '1';
+    attEl.addEventListener('click', async function(e) {
+      const btn = e.target.closest('.att-btn');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.dataset.busy === '1') return; // chặn double-click/double-tap khi đang xử lý
+      btn.dataset.busy = '1';
+      const studentId = btn.dataset.student;
+      const date = btn.dataset.date;
+      try {
+        await toggleAtt(studentId, date, btn);
+      } finally {
+        btn.dataset.busy = '0';
+      }
+    });
+  }
 }
 
 async function toggleAtt(studentId, date, btn) {
@@ -1854,12 +1804,10 @@ async function toggleAtt(studentId, date, btn) {
   const isPresent = btn.dataset.present !== 'false';
   const newPresent = !isPresent;
   try {
-    const existing = await api.get('attendance', `?student_id=eq.${studentId}&date=eq.${date}`);
-    if (existing && existing.length > 0) {
-      await api.patch('attendance', { present: newPresent }, `?student_id=eq.${studentId}&date=eq.${date}`);
-    } else {
-      await api.post('attendance', { student_id: studentId, date, present: newPresent });
-    }
+    // Dùng UPSERT (1 lệnh duy nhất, có on_conflict) thay vì "get rồi mới post/patch" (2 bước).
+    // Cách cũ bị race condition: 2 lần bấm/2 request gần nhau đều thấy "chưa có bản ghi"
+    // rồi cùng cố INSERT -> vi phạm unique constraint (student_id, date) -> lỗi 23505.
+    await api.upsert('attendance', { student_id: studentId, date, present: newPresent }, 'student_id,date');
     // Update UI
     btn.dataset.present = newPresent ? 'true' : 'false';
     btn.style.background = newPresent ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)';
@@ -2223,7 +2171,49 @@ function copyMsg(id) {
 }
 
 // ============================================
-// EXPORT EXCEL
+// EXPORT EXCEL - Danh sách học sinh 1 lớp (nút "Xuất Excel" ở trang Học sinh)
+// ============================================
+async function exportStudentList(classId, className) {
+  let students;
+  if (classId === 'mamnon') {
+    students = allStudents.filter(s => s.class_type === 'mamnon');
+  } else {
+    const cls = allClasses.find(c => c.id === classId);
+    if (cls?.class_type === 'mamnon') {
+      students = allStudents.filter(s => s.class_type === 'mamnon' && (s.class_id === classId || !s.class_id));
+    } else {
+      students = allStudents.filter(s => s.class_id === classId);
+    }
+  }
+  if (!students || !students.length) return showToast('Lớp chưa có học sinh để xuất', 'error');
+
+  const rows = [];
+  rows.push([`DANH SÁCH HỌC SINH LỚP ${className}`]);
+  rows.push([]);
+  rows.push(['STT','Tên học sinh','Ngày sinh','SĐT Zalo','Phụ huynh','Giảm %']);
+  students.forEach((s, i) => {
+    rows.push([
+      i + 1,
+      s.name || '',
+      s.date_of_birth ? formatDate(s.date_of_birth) : '',
+      s.phone_zalo || '',
+      s.parent_name || '',
+      s.discount_percent || 0
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:5},{wch:22},{wch:12},{wch:14},{wch:16},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Danh sách');
+
+  const safeName = String(className).replace(/[^a-zA-Z0-9]/g, '_');
+  XLSX.writeFile(wb, `DanhSach_${safeName}.xlsx`);
+  showToast('Đã xuất file Excel ✓', 'success');
+}
+
+// ============================================
+// EXPORT EXCEL - Báo cáo học phí theo tháng (trang "Xuất Excel")
 // ============================================
 async function exportExcel() {
   const month = document.getElementById('exportMonth').value;
@@ -2253,60 +2243,7 @@ async function exportExcel() {
   const attMap = {};
   attRecords.forEach(r => { attMap[`${r.student_id}_${r.date}`] = r.present; });
 
-  // Build CSV - Sheet 1: Summary
-  let rows = [];
   const className = classFilter === 'all' ? 'Tất cả lớp' : (allClasses.find(c=>c.id===classFilter)?.name || classFilter);
-  rows.push([`BÁO CÁO HỌC PHÍ THÁNG ${parseInt(mo)}/${yr} - ${className}`]);
-  rows.push([]);
-  rows.push(['STT','Tên học sinh','Lớp','Số buổi','HP cơ bản','Tiền ăn','Zumba','Giảm 10%','Tổng tiền','SĐT Zalo']);
-
-  let grandTotal = 0;
-  let stt = 1;
-  for (const f of filtered) {
-    const s = studentMap[f.student_id] || {};
-    const cls = allClasses.find(c => c.id === s.class_id);
-    rows.push([stt++, s.name||'', cls?.name||typeLabel(s.class_type), f.sessions_present, f.base_fee, f.meal_fee||0, f.zumba_fee||0, f.discount_amount||0, f.total, s.phone_zalo||'']);
-    grandTotal += f.total;
-  }
-  rows.push([]);
-  rows.push(['','','','','','','','TỔNG CỘNG','',grandTotal,'']);
-  rows.push([]);
-  rows.push([]);
-
-  // Sheet 2: Attendance detail
-  rows.push([`ĐIỂM DANH CHI TIẾT THÁNG ${parseInt(mo)}/${yr}`]);
-  rows.push([]);
-
-  // Get all scheduled dates for each student
-  for (const f of filtered) {
-    const s = studentMap[f.student_id];
-    if (!s) continue;
-    const scheduledDates = getScheduledDates(s.schedule_days || [], parseInt(yr), parseInt(mo));
-    if (!scheduledDates.length) continue;
-
-    // Header row: Tên + dates
-    const headerRow = ['Tên'];
-    scheduledDates.forEach(d => {
-      const day = parseInt(d.split('-')[2]);
-      const dateObj = new Date(d + 'T00:00:00');
-      const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
-      headerRow.push(`${dayNames[dateObj.getDay()]} ${day}`);
-    });
-    headerRow.push('Có mặt', 'Nghỉ');
-    rows.push(headerRow);
-
-    // Student row
-    const studentRow = [s.name];
-    let presentCount = 0;
-    scheduledDates.forEach(date => {
-      const present = attMap[`${s.id}_${date}`] !== false;
-      if (present) presentCount++;
-      studentRow.push(present ? '✓' : '✗');
-    });
-    studentRow.push(presentCount, scheduledDates.length - presentCount);
-    rows.push(studentRow);
-    rows.push([]);
-  }
 
   // Build XLSX using SheetJS
   const wb = XLSX.utils.book_new();
@@ -2463,208 +2400,6 @@ async function changePassword() {
     showToast('Đã đổi mật khẩu ✓', 'success');
     ['oldPass','newPass','newPass2'].forEach(id => document.getElementById(id).value = '');
   } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
-}
-
-// ============================================
-// TEACHERS
-// ============================================
-let allTeachers = [];
-let editingTeacherId = null;
-let noteCallback = null;
-
-async function loadTeachers() {
-  try {
-    allTeachers = await api.get('teachers', '?active=eq.true&order=name.asc');
-    renderTeachers();
-  } catch(e) { console.error(e); }
-}
-
-function renderTeachers() {
-  const tbody = document.getElementById('teacherTableBody');
-  if (!tbody) return;
-  if (!allTeachers.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">👩‍🏫</div><p>Chưa có giáo viên</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = allTeachers.map((t, i) => `
-    <tr>
-      <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${t.name}</strong></td>
-      <td style="color:var(--accent)">${fmt(t.salary_per_session)} đ/buổi</td>
-      <td style="color:var(--muted);font-size:12px">${formatDays(t.schedule_days)}</td>
-      <td><div class="actions-row">
-        <button class="btn btn-secondary btn-sm" onclick="openTeacherModal('${t.id}')">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}','${t.name}')">🗑️</button>
-      </div></td>
-    </tr>
-  `).join('');
-}
-
-function showTeacherTab(tab, el) {
-  document.querySelectorAll('#page-teachers .tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('teacherListTab').style.display = tab === 'list' ? 'block' : 'none';
-  document.getElementById('teacherAttTab').style.display = tab === 'attendance' ? 'block' : 'none';
-  if (tab === 'attendance') loadTeacherAttendance();
-}
-
-function openTeacherModal(id = null) {
-  editingTeacherId = id;
-  document.getElementById('teacherModalTitle').textContent = id ? 'Sửa giáo viên' : 'Thêm giáo viên';
-  document.querySelectorAll('#teacherDaysPicker .day-btn').forEach(b => b.classList.remove('selected'));
-  if (id) {
-    const t = allTeachers.find(x => x.id === id);
-    if (!t) return;
-    document.getElementById('t_name').value = t.name;
-    document.getElementById('t_salary').value = t.salary_per_session || 0;
-    (t.schedule_days || []).forEach(d => {
-      document.querySelector(`#teacherDaysPicker .day-btn[data-tday="${d}"]`)?.classList.add('selected');
-    });
-  } else {
-    document.getElementById('t_name').value = '';
-    document.getElementById('t_salary').value = '';
-  }
-  document.getElementById('teacherModal').classList.add('show');
-}
-
-function closeTeacherModal() {
-  document.getElementById('teacherModal').classList.remove('show');
-  editingTeacherId = null;
-}
-
-async function saveTeacher() {
-  const name = document.getElementById('t_name').value.trim();
-  if (!name) return showToast('Vui lòng nhập tên giáo viên', 'error');
-  const days = [...document.querySelectorAll('#teacherDaysPicker .day-btn.selected')].map(b => b.dataset.tday);
-  const data = { name, salary_per_session: +document.getElementById('t_salary').value || 0, schedule_days: days, active: true };
-  try {
-    if (editingTeacherId) {
-      await api.patch('teachers', data, `?id=eq.${editingTeacherId}`);
-      showToast('Đã cập nhật ✓', 'success');
-    } else {
-      await api.post('teachers', data);
-      showToast('Đã thêm giáo viên ✓', 'success');
-    }
-    closeTeacherModal();
-    await loadTeachers();
-  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
-}
-
-async function deleteTeacher(id, name) {
-  if (!confirm(`Xóa giáo viên "${name}"?`)) return;
-  try {
-    await api.delete('teachers', `?id=eq.${id}`);
-    showToast('Đã xóa ✓', 'success');
-    await loadTeachers();
-  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
-}
-
-async function loadTeacherAttendance() {
-  const month = document.getElementById('teacherMonth')?.value;
-  if (!month || !allTeachers.length) return;
-  const [yr, mo] = month.split('-').map(Number);
-  const daysInMonth = new Date(yr, mo, 0).getDate();
-  const startDate = `${month}-01`;
-  const endDate = `${month}-${String(daysInMonth).padStart(2,'0')}`;
-  const records = await api.get('teacher_attendance', `?teacher_id=in.(${allTeachers.map(t=>t.id).join(',')})&date=gte.${startDate}&date=lte.${endDate}`);
-  const recMap = {};
-  records.forEach(r => { recMap[`${r.teacher_id}_${r.date}`] = r; });
-
-  let html = '';
-  for (const t of allTeachers) {
-    const scheduledDates = getScheduledDates(t.schedule_days || [], yr, mo);
-    if (!scheduledDates.length) continue;
-    let presentCount = 0;
-    let btns = '';
-    for (const date of scheduledDates) {
-      const rec = recMap[`${t.id}_${date}`];
-      const present = rec ? rec.present : true;
-      const note = rec?.note || '';
-      if (present) presentCount++;
-      const d = new Date(date + 'T00:00:00').getDate();
-      btns += `<button class="att-btn-teacher" data-teacher="${t.id}" data-date="${date}" data-present="${present}"
-          style="width:38px;height:38px;border-radius:8px;border:1px solid;cursor:pointer;font-size:12px;font-weight:700;
-          background:${present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)'};
-          color:${present ? '#3ecf8e' : '#e05c5c'};
-          border-color:${present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)'}"
-          title="${date}">${d}</button>`;
-    }
-    const salary = presentCount * (t.salary_per_session || 0);
-    html += `<div class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div><strong>${t.name}</strong><span style="margin-left:8px;font-size:13px;color:var(--muted)">${fmt(t.salary_per_session)}đ/buổi</span></div>
-        <span style="font-size:13px;color:var(--muted)">
-          Dạy: <strong style="color:var(--green)" id="tpresent_${t.id}">${presentCount}</strong>/${scheduledDates.length} buổi
-          &nbsp;|&nbsp; Lương: <strong style="color:var(--accent)" id="tsalary_${t.id}">${fmt(salary)}đ</strong>
-        </span>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${btns}</div>
-    </div>`;
-  }
-
-  const el = document.getElementById('teacherAttContent');
-  if (!el) return;
-  el.innerHTML = html || `<div class="empty-state"><div class="icon">📅</div><p>Không có dữ liệu</p></div>`;
-
-  el.onclick = null;
-  el.addEventListener('click', async function(e) {
-    const btn = e.target.closest('.att-btn-teacher');
-    if (!btn) return;
-    e.stopPropagation();
-    const teacherId = btn.dataset.teacher;
-    const date = btn.dataset.date;
-    const isPresent = btn.dataset.present !== 'false';
-    await toggleTeacherAtt(teacherId, date, btn, !isPresent, '');
-  });
-}
-
-async function toggleTeacherAtt(teacherId, date, btn, present, note) {
-  console.log('toggleTeacherAtt:', teacherId, date, present, note, 'btn:', btn);
-  try {
-    const existing = await api.get('teacher_attendance', `?teacher_id=eq.${teacherId}&date=eq.${date}`);
-    if (existing && existing.length > 0) {
-      await api.patch('teacher_attendance', { present, note: note||null }, `?teacher_id=eq.${teacherId}&date=eq.${date}`);
-    } else {
-      await api.post('teacher_attendance', { teacher_id: teacherId, date, present, note: note||null });
-    }
-    btn.dataset.present = String(present);
-    btn.style.background = present ? 'rgba(62,207,142,0.15)' : 'rgba(224,92,92,0.15)';
-    btn.style.color = present ? '#3ecf8e' : '#e05c5c';
-    btn.style.borderColor = present ? 'rgba(62,207,142,0.4)' : 'rgba(224,92,92,0.4)';
-    btn.title = date + (note ? ' - '+note : '');
-    const noteSpan = btn.parentElement?.querySelector('span');
-    if (noteSpan) { noteSpan.textContent = note||' '; noteSpan.title = note||''; }
-    // Update count & salary
-    const card = btn.closest('.card');
-    const allBtns = card.querySelectorAll('.att-btn-teacher');
-    const presentCount = [...allBtns].filter(b => b.dataset.present !== 'false').length;
-    const t = allTeachers.find(x => x.id === teacherId);
-    const countEl = document.getElementById(`tpresent_${teacherId}`);
-    const salEl = document.getElementById(`tsalary_${teacherId}`);
-    if (countEl) countEl.textContent = presentCount;
-    if (salEl) salEl.textContent = fmt(presentCount * (t?.salary_per_session||0)) + 'đ';
-  } catch(e) { showToast('Lỗi: ' + e.message, 'error'); }
-}
-
-function openNoteModal(callback) {
-  noteCallback = callback;
-  document.getElementById('noteInput').value = '';
-  document.getElementById('noteModal').classList.add('show');
-  setTimeout(() => document.getElementById('noteInput').focus(), 100);
-}
-
-function closeNoteModal() {
-  document.getElementById('noteModal').classList.remove('show');
-  noteCallback = null;
-}
-
-function confirmNote() {
-  const note = document.getElementById('noteInput').value.trim();
-  console.log('confirmNote called, note:', note, 'callback:', noteCallback);
-  const cb = noteCallback; // lưu callback trước
-  noteCallback = null;     // xóa ref
-  document.getElementById('noteModal').classList.remove('show'); // đóng modal
-  if (cb) cb(note);        // gọi sau khi đã lưu
 }
 
 // ============================================
